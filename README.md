@@ -1,6 +1,6 @@
 **Jogue no celular ou no computador:** https://notdsn.github.io/exercito-da-fe/
 
-# Exército da Fé — Combinações Bíblicas (protótipo v3)
+# Exército da Fé — Combinações Bíblicas (protótipo v4)
 
 Auto-battler no estilo TFT / Combinações Táticas (Clash Royale), com heróis da Bíblia e as forças das trevas.
 Tudo roda no navegador (Three.js já incluído na pasta `vendor/`, sem internet e sem compilação).
@@ -71,7 +71,8 @@ Javali-Besta, Orc, Mago Sombrio, Cavaleiro das Trevas, Leão-Lobo, Elemental de 
 game/
   index.html          tela, HUD, loja
   css/estilo.css      visual
-  js/main.js          cena 3D, tabuleiro, loja, arrastar/soltar, combate, rodadas
+  js/main.js          cena 3D, luzes, câmera, loja, arrastar/soltar, combate, rodadas
+  js/arena.js         arena 3D (tabuleiro, muralhas, rio, torres, cenário)
   js/units.js         unidades, traços, frases, rodadas (registro de modelos)
   js/habilidades.js   habilidades especiais de cada unidade
   js/ia.js            rivais controlados pelo computador
@@ -85,6 +86,14 @@ game/
   vendor/three/       Three.js r186
   servidor.py         servidor local
 ```
+
+## Visual v4 (arena 3D estilo Clash)
+- **Arena 3D de verdade** (`js/arena.js`): plataforma elevada de tijolos, quadrados de grama chanfrados em dois verdes com sulcos de terra entre eles, muralhas de pedra arredondada com faixa **azul** (seu lado) e **vermelha** (adversário), braseiros com fogo nos cantos.
+- **Rio no meio** com água animada (shader leve) e uma ponte de tábuas por coluna; o rio continua pelo cenário, com margens de areia, pedras e pontezinhas.
+- **Torres com volume**: duas torres de princesa e uma torre do rei para cada lado, com telhado cônico, ameias, porta, estandarte (cruz dourada no azul, coroa no vermelho) e bandeira balançando.
+- **Cenário completo**: praça de lajotas, árvores redondas, palmeiras, arbustos, pedras, tendas listradas dos acampamentos e colinas/dunas no horizonte (sem vazio). Tudo é juntado em poucos objetos (poucas chamadas de desenho) e as texturas são desenhadas em canvas (nada externo).
+- **Luz**: sol quente com sombras suaves (mapa 2048, 1024 no celular), luz do céu, contraluz e tone mapping Neutral (cores vivas). Sombra arredondada e pedestal com borda escura sob cada unidade.
+- **Câmera** atrás do seu lado, inclinada (57° no celular em pé, 50° no PC), perspectiva moderada; quadrado um pouco maior (1,4) para as cabeças não cobrirem a fileira de trás.
 
 ## Visual v3 (estilo Clash)
 - **Câmera fixa**, alta e inclinada (55° no PC, 62° no celular em pé), enquadrando tabuleiro + banco entre a barra superior e a loja. Não há mais zoom durante a luta; o tremor de tela ficou bem sutil.

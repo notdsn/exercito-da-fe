@@ -7,9 +7,11 @@ import { HABILIDADES, iniciarHabilidades, definirCamera } from './habilidades.js
 import { novaLoja, limiteCampo, contarTracos, nivelDe, niveis, renda, danoDerrota, VIDA_INICIAL, OURO_INICIAL } from './regras.js';
 import { RivalIA, PERSONAS, DIFICULDADES } from './ia.js';
 import * as conta from './perfil/conta.js';
+import { criarArena, blobSombra } from './arena.js';
 
 // ---------------- Constantes ----------------
-export const T = 1.3;             // tamanho do quadrado
+export const T = 1.4;             // tamanho do quadrado
+const G = 0.55;                   // largura do canal (rio) entre as metades
 const COLS = 5, LINHAS = 4, BANCO = 5;
 const MAX_RODADA = 30; // limite de segurança; normalmente o jogo acaba antes
 const nomeRodada = r => RODADAS[(r - 1) % RODADAS.length] + (r > RODADAS.length ? ' (II)' : '');
@@ -19,36 +21,30 @@ const MULT_ESTRELA = [1, 1.8, 3.2];
 const ESCALA_ESTRELA = [1, 1.05, 1.1]; // diferença mínima: todos com o mesmo tamanho
 const $ = s => document.querySelector(s);
 
-// ---------------- Cena (arena estilo desenho, clara e colorida) ----------------
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+// ---------------- Cena 3D (arena estilo Clash) ----------------
+const celular = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 700;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.NeutralToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.12;
 $('#cena').appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-{
-  const cv = document.createElement('canvas'); cv.width = 4; cv.height = 256;
-  const g = cv.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, '#5ab4f0'); gr.addColorStop(0.6, '#a8dcff'); gr.addColorStop(1, '#e6f6ff');
-  g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; scene.background = t;
-}
-scene.fog = new THREE.Fog('#bfe6ff', 38, 80);
-const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 120);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 140);
 const CAM_JOGO = new THREE.Vector3(0, 16, 8);
 const ALVO_CAM = new THREE.Vector3(0, 0, 0.8);
 camera.position.copy(CAM_JOGO); camera.lookAt(ALVO_CAM);
 
-scene.add(new THREE.HemisphereLight('#ffffff', '#7ab860', 1.9));
-const sol = new THREE.DirectionalLight('#fff3dc', 2.3);
-sol.position.set(-5, 14, 7); sol.castShadow = true;
-sol.shadow.mapSize.set(2048, 2048); sol.shadow.radius = 3; sol.shadow.bias = -0.0005;
-Object.assign(sol.shadow.camera, { left: -10, right: 10, top: 11, bottom: -11, near: 1, far: 40 });
-scene.add(sol);
-const contraLuz = new THREE.DirectionalLight('#e8f4ff', 1.1); contraLuz.position.set(3, 8, -10); scene.add(contraLuz);
+// luz: céu + sol quente com sombras suaves + contraluz para destacar as silhuetas
+scene.add(new THREE.HemisphereLight('#e4f3ff', '#6f8f45', 0.78));
+const sol = new THREE.DirectionalLight('#fff0d4', 2.25);
+sol.position.set(-9, 14, 4); sol.castShadow = true;
+sol.shadow.mapSize.set(celular ? 1024 : 2048, celular ? 1024 : 2048); sol.shadow.radius = 3; sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.02;
+Object.assign(sol.shadow.camera, { left: -11, right: 11, top: 14, bottom: -14, near: 1, far: 45 }); sol.shadow.camera.updateProjectionMatrix();
+scene.add(sol); scene.add(sol.target);
+const contraLuz = new THREE.DirectionalLight('#ffe8c8', 0.55); contraLuz.position.set(5, 8, -10); scene.add(contraLuz);
 
 // luz de borda (rim) nos personagens: destaca a silhueta como nos jogos estilo Clash
 export function aplicarRim(mat, cor) {
@@ -58,7 +54,7 @@ export function aplicarRim(mat, cor) {
     sh.uniforms.corRim = mat.userData.rim;
     sh.fragmentShader = 'uniform vec3 corRim;\n' + sh.fragmentShader.replace('#include <opaque_fragment>',
       `float rimF = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 3.0);
-       outgoingLight += corRim * rimF * 0.38;
+       outgoingLight += corRim * rimF * 0.42;
        #include <opaque_fragment>`);
   };
   mat.customProgramCacheKey = () => 'rim';
@@ -68,74 +64,14 @@ export function aplicarRim(mat, cor) {
 const vfx = new VFX(scene, camera);
 const modelos = new Modelos();
 
-export function posQuadrado(c, l) { return new THREE.Vector3((c - (COLS - 1) / 2) * T, 0, (l - (LINHAS - 0.5)) * T); }
-function posBanco(i) { return new THREE.Vector3((i - (BANCO - 1) / 2) * T, 0, LINHAS * T + 1.35); }
+// posições: tabuleiro 5x8 com um canal (rio) entre as metades, banco na frente
+const X0 = COLS * T / 2 + 0.06, ZB = LINHAS * T + G / 2 + 0.06, ZDIV = ZB + 0.3, ZBANCO = ZDIV + 1.7;
+export function posQuadrado(c, l) { return new THREE.Vector3((c - (COLS - 1) / 2) * T, 0, (l - (LINHAS - 0.5)) * T + (l >= LINHAS ? G / 2 : -G / 2)); }
+function posBanco(i) { return new THREE.Vector3((i - (BANCO - 1) / 2) * T, 0, (ZDIV + ZBANCO) / 2); }
 
-// gramado
-const chao = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), new THREE.MeshStandardMaterial({ color: '#86cf5c', roughness: 1 }));
-chao.rotation.x = -Math.PI / 2; chao.position.y = -0.12; chao.receiveShadow = true; scene.add(chao);
-// arena: base de pedra clara + moldura azul (jogador) e vermelha (adversário)
-const W_TAB = COLS * T, D_TAB = LINHAS * 2 * T;
-const baseArena = new THREE.Mesh(new THREE.BoxGeometry(W_TAB + 0.5, 0.3, D_TAB + 0.5), new THREE.MeshStandardMaterial({ color: '#f1e3bf', roughness: 0.9 }));
-baseArena.position.y = -0.2; baseArena.receiveShadow = true; scene.add(baseArena);
-{
-  const azul = new THREE.MeshStandardMaterial({ color: '#2f7ff0', roughness: 0.5, emissive: '#0a2a6a', emissiveIntensity: 0.25 });
-  const verm = new THREE.MeshStandardMaterial({ color: '#f0453a', roughness: 0.5, emissive: '#6a0a0a', emissiveIntensity: 0.25 });
-  const W = W_TAB + 0.85, h = 0.32, e = 0.3;
-  const bloco = (m, w, d, x, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d, 1, 1, 1), m); b.position.set(x, -0.02, z); b.castShadow = true; b.receiveShadow = true; scene.add(b); };
-  bloco(azul, W, e, 0, D_TAB / 2 + 0.28); bloco(verm, W, e, 0, -D_TAB / 2 - 0.28);
-  for (const sx of [-1, 1]) { bloco(azul, e, D_TAB / 2 + 0.3, sx * (W / 2 - e / 2), D_TAB / 4 + 0.13); bloco(verm, e, D_TAB / 2 + 0.3, sx * (W / 2 - e / 2), -D_TAB / 4 - 0.13); }
-  // torres decorativas nos cantos (azuis embaixo, vermelhas em cima)
-  const pedraT = new THREE.MeshStandardMaterial({ color: '#e9e2d0', roughness: 0.8 });
-  for (const [x, z, m] of [[-W / 2 - 1.1, D_TAB / 2 - 0.4, azul], [W / 2 + 1.1, D_TAB / 2 - 0.4, azul], [-W / 2 - 1.1, -D_TAB / 2 + 0.4, verm], [W / 2 + 1.1, -D_TAB / 2 + 0.4, verm]]) {
-    const t = new THREE.Group(); t.position.set(x, 0, z);
-    const corpo = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, 1.6, 12), pedraT); corpo.position.y = 0.8; corpo.castShadow = true; t.add(corpo);
-    const anel = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.25, 12), m); anel.position.y = 1.62; t.add(anel);
-    const teto = new THREE.Mesh(new THREE.ConeGeometry(0.95, 1.0, 12), m); teto.position.y = 2.25; teto.castShadow = true; t.add(teto);
-    const mastro = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.8, 6), new THREE.MeshStandardMaterial({ color: '#7a5a3a' })); mastro.position.y = 3.1; t.add(mastro);
-    const band = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.3), new THREE.MeshStandardMaterial({ color: '#ffd23a', side: THREE.DoubleSide })); band.position.set(0.25, 3.3, 0); band.userData.bandeira = true; t.add(band);
-    scene.add(t);
-  }
-  // árvores redondas, arbustos e pedras ao redor
-  const copa = [new THREE.MeshStandardMaterial({ color: '#3fae4a', roughness: 0.9 }), new THREE.MeshStandardMaterial({ color: '#58c24e', roughness: 0.9 })];
-  const tronco = new THREE.MeshStandardMaterial({ color: '#8a5a32' });
-  const rocha = new THREE.MeshStandardMaterial({ color: '#a9b2b8', roughness: 0.8, flatShading: true });
-  let semente = 7; const rnd = () => (semente = (semente * 9301 + 49297) % 233280) / 233280;
-  for (let i = 0; i < 46; i++) {
-    const ang = rnd() * Math.PI * 2, r = 8.2 + rnd() * 14;
-    const x = Math.cos(ang) * r * 1.15, z = Math.sin(ang) * r - 1;
-    if (Math.abs(x) < W / 2 + 2.2 && Math.abs(z) < D_TAB / 2 + 3.4) continue;
-    const g = new THREE.Group(); g.position.set(x, 0, z);
-    if (rnd() < 0.7) {
-      const s2 = 0.8 + rnd() * 0.7;
-      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * s2, 0.18 * s2, 1.0 * s2, 6), tronco); tr.position.y = 0.5 * s2; tr.castShadow = true; g.add(tr);
-      const cp = new THREE.Mesh(new THREE.IcosahedronGeometry(0.75 * s2, 1), copa[i % 2]); cp.position.y = 1.35 * s2; cp.castShadow = true; g.add(cp);
-    } else {
-      const rk = new THREE.Mesh(new THREE.DodecahedronGeometry(0.35 + rnd() * 0.3, 0), rocha); rk.position.y = 0.15; rk.rotation.set(rnd(), rnd(), rnd()); rk.castShadow = true; g.add(rk);
-    }
-    scene.add(g);
-  }
-}
-const quadrados = []; // {malha, c, l, jogador}
-for (let l = 0; l < LINHAS * 2; l++) for (let c = 0; c < COLS; c++) {
-  const jog = l >= LINHAS;
-  const claro = (c + l) % 2 === 0;
-  const cor = jog ? (claro ? '#9be36a' : '#84d257') : (claro ? '#a6e277' : '#90d062');
-  const m = new THREE.Mesh(new THREE.BoxGeometry(T * 0.93, 0.12, T * 0.93), new THREE.MeshStandardMaterial({ color: cor, roughness: 0.95, emissive: '#000' }));
-  m.position.copy(posQuadrado(c, l)); m.position.y = -0.05; m.receiveShadow = true; scene.add(m);
-  quadrados.push({ malha: m, c, l, jogador: jog, corBase: cor });
-}
-const linhaMeio = new THREE.Mesh(new THREE.BoxGeometry(COLS * T, 0.03, 0.08), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85 }));
-linhaMeio.position.set(0, 0.02, 0); scene.add(linhaMeio);
-const slotsBanco = [];
-{
-  const prancha = new THREE.Mesh(new THREE.BoxGeometry(BANCO * T + 0.3, 0.16, T + 0.15), new THREE.MeshStandardMaterial({ color: '#c98d4e', roughness: 0.8 }));
-  prancha.position.set(0, -0.12, posBanco(0).z); prancha.receiveShadow = true; scene.add(prancha);
-}
-for (let i = 0; i < BANCO; i++) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(T * 0.86, 0.1, T * 0.86), new THREE.MeshStandardMaterial({ color: '#f2d9a8', roughness: 0.85, emissive: '#000' }));
-  m.position.copy(posBanco(i)); m.position.y = -0.01; m.receiveShadow = true; scene.add(m); slotsBanco.push(m);
-}
+const arena = criarArena(scene, { T, COLS, LINHAS, BANCO, G, posQuadrado, posBanco, X0, ZB, ZBANCO });
+const quadrados = arena.quadrados; // {malha, c, l, jogador}
+const slotsBanco = arena.slotsBanco;
 
 // ---------------- Estado ----------------
 const S = {
@@ -157,21 +93,26 @@ export class Unidade {
     this.slot = null; // {tipo:'tab', c, l} | {tipo:'banco', i}
     // base (anel do time)
     const corTime = time === 'jogador' ? '#2f86ff' : '#ff4a3d';
-    this.base = new THREE.Mesh(new THREE.CylinderGeometry(0.47, 0.5, 0.09, 28), new THREE.MeshStandardMaterial({ color: corTime, emissive: corTime, emissiveIntensity: 0.3, roughness: 0.45 }));
-    this.base.position.y = 0.045; this.base.receiveShadow = true; this.root.add(this.base);
-    this.anel = new THREE.Mesh(new THREE.TorusGeometry(0.485, 0.035, 6, 32), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 }));
-    this.anel.rotation.x = -Math.PI / 2; this.anel.position.y = 0.095; this.root.add(this.anel);
+    const cor0 = new THREE.Color(corTime);
+    this.sombra = blobSombra(); this.root.add(this.sombra);
+    this.pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.54, 0.06, 28), new THREE.MeshStandardMaterial({ color: cor0.clone().multiplyScalar(0.45), roughness: 0.6 }));
+    this.pedestal.position.y = 0.03; this.pedestal.castShadow = true; this.pedestal.receiveShadow = true; this.root.add(this.pedestal);
+    this.base = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.49, 0.05, 28), new THREE.MeshStandardMaterial({ color: corTime, emissive: corTime, emissiveIntensity: 0.28, roughness: 0.4 }));
+    this.base.position.y = 0.085; this.base.receiveShadow = true; this.root.add(this.base);
+    this.anel = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.035, 6, 32), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4 }));
+    this.anel.rotation.x = -Math.PI / 2; this.anel.position.y = 0.11; this.root.add(this.anel);
     // cilindro invisível só para clicar/tocar
     this.alvoClique = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 1.7, 8), new THREE.MeshBasicMaterial({ visible: false }));
     this.alvoClique.position.y = 0.85; this.root.add(this.alvoClique);
     this.aura = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.66, 32), new THREE.MeshBasicMaterial({ color: '#fff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    this.aura.rotation.x = -Math.PI / 2; this.aura.position.y = 0.07; this.root.add(this.aura);
+    this.aura.rotation.x = -Math.PI / 2; this.aura.position.y = 0.025; this.root.add(this.aura);
     this.pilar = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 2.2, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#fff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     this.pilar.position.y = 1.1; this.pilar.visible = false; this.root.add(this.pilar);
-    this.corpo = new THREE.Group(); this.root.add(this.corpo);
+    this.corpo = new THREE.Group(); this.corpo.position.y = 0; this.root.add(this.corpo);
     const vis = modelos.criar(id, this.def, time !== 'jogador');
     this.visual = vis.obj; this.mixer = vis.mixer; this.rig = vis.rig; this.alturaModelo = vis.altura;
-    this.corpo.add(this.visual);
+    this.elev = new THREE.Group(); this.elev.position.y = 0.08; this.corpo.add(this.elev);
+    this.elev.add(this.visual);
     this.mats = [];
     this.visual.traverse(o => {
       if (o.isMesh && o.material && !Array.isArray(o.material)) {
@@ -611,14 +552,14 @@ export function inimigosDe(u) { return S.combatentes.filter(x => x.vivo && x.tim
 export function aliadosDe(u) { return S.combatentes.filter(x => x.vivo && x.time === u.time); }
 export function dist(a, b) { const p = a.root ? a.root.position : a, q = b.root ? b.root.position : b; return Math.hypot(p.x - q.x, p.z - q.z); }
 export function maisProximo(u, lista) { let m = null, d = 1e9; for (const x of lista) { const k = dist(u, x); if (k < d) { d = k; m = x; } } return m; }
-export function limitarPos(p) { p.x = THREE.MathUtils.clamp(p.x, -2.4 * T, 2.4 * T); p.z = THREE.MathUtils.clamp(p.z, -3.9 * T, 3.9 * T); return p; }
+export function limitarPos(p) { p.x = THREE.MathUtils.clamp(p.x, -2.4 * T, 2.4 * T); p.z = THREE.MathUtils.clamp(p.z, -3.9 * T - G / 2, 3.9 * T + G / 2); return p; }
 
 // ---- grade de combate: cada unidade ocupa exatamente um quadrado ----
 const ocupacao = new Map(); // "c,l" -> unidade
 const chaveT = (c, l) => c + ',' + l;
 const dentroT = (c, l) => c >= 0 && c < COLS && l >= 0 && l < LINHAS * 2;
 export const distTile = (a, b) => Math.max(Math.abs(a.c - b.c), Math.abs(a.l - b.l));
-function tileDe(p) { return { c: THREE.MathUtils.clamp(Math.round(p.x / T + (COLS - 1) / 2), 0, COLS - 1), l: THREE.MathUtils.clamp(Math.round(p.z / T + (LINHAS - 0.5)), 0, LINHAS * 2 - 1) }; }
+function tileDe(p) { return { c: THREE.MathUtils.clamp(Math.round(p.x / T + (COLS - 1) / 2), 0, COLS - 1), l: THREE.MathUtils.clamp(Math.round((p.z - Math.sign(p.z) * G / 2) / T + (LINHAS - 0.5)), 0, LINHAS * 2 - 1) }; }
 function liberar(u) { if (u.tile && ocupacao.get(chaveT(u.tile.c, u.tile.l)) === u) ocupacao.delete(chaveT(u.tile.c, u.tile.l)); }
 function ocupar(u, c, l) { liberar(u); u.tile = { c, l }; ocupacao.set(chaveT(c, l), u); }
 function tileLivrePerto(p, ignorar) {
@@ -753,7 +694,7 @@ function passoCombate(dt) {
       if (melhor) {
         ocupar(u, melhor.c, melhor.l);
         const diag = melhor.c !== u.root.position.x && Math.abs(melhor.q.x - u.root.position.x) > 0.1 && Math.abs(melhor.q.z - u.root.position.z) > 0.1;
-        u.mov = { de: u.root.position.clone(), para: melhor.q, t: 0, dur: T * (diag ? 1.35 : 1) / u.velMov };
+        u.mov = { de: u.root.position.clone(), para: melhor.q, t: 0, dur: Math.max(T, Math.hypot(melhor.q.x - u.root.position.x, melhor.q.z - u.root.position.z)) * (diag ? 0.96 : 1) / u.velMov };
         u.root.rotation.y = Math.atan2(melhor.q.x - u.root.position.x, melhor.q.z - u.root.position.z);
         u.andando = true; u.bloqueado = 0;
       } else { u.andando = false; u.bloqueado = (u.bloqueado || 0) + dt; }
@@ -919,21 +860,22 @@ function redimensionar() {
   camera.updateProjectionMatrix();
   enquadrar();
 }
-// posiciona a câmera para o tabuleiro + banco caberem entre o HUD e a loja
-// câmera fixa (igual no preparo e no combate), alta e inclinada como no Clash
+// câmera fixa estilo Clash: atrás do lado do jogador, inclinada, com perspectiva moderada.
+// Ajusta a distância para o tabuleiro + banco (+ torre do rei inimigo) caberem entre o HUD e a loja.
 function enquadrar() {
   const W = innerWidth, H = innerHeight, retrato = W / H < 0.8;
-  const topo = retrato ? 112 : 58, base = retrato ? 196 : 140;
+  const topo = retrato ? 104 : 54, base = retrato ? 190 : 136;
   const yMax = 1 - 2 * topo / H, yMin = -1 + 2 * base / H;
-  const xLim = retrato ? 0.99 : W > 1000 ? 1 - 2 * 185 / W : 0.94;
-  const bx = (COLS * T) / 2 + 0.45;
-  const pts = [[-bx, 0, -LINHAS * T - 0.45], [bx, 0, -LINHAS * T - 0.45], [-bx, 1.6, -LINHAS * T + 0.6], [bx, 1.6, -LINHAS * T + 0.6],
-    [-bx, 0, posBanco(0).z + 0.75], [bx, 0, posBanco(0).z + 0.75]].map(p => new THREE.Vector3(...p));
-  const elev = THREE.MathUtils.degToRad(retrato ? 62 : 55);
+  const xLim = retrato ? 1.02 : W > 1000 ? 1 - 2 * 200 / W : 0.94;
+  camera.fov = retrato ? 40 : 34; camera.updateProjectionMatrix();
+  const bx = arena.XW;
+  const pts = [[-bx, 0.3, -ZB - 0.42], [bx, 0.3, -ZB - 0.42], [0, retrato ? 2.2 : 0.3, retrato ? arena.zRei : -ZB], [-bx, 0, arena.ZFR], [bx, 0, arena.ZFR], [-X0, 1.9, -ZB + T * 0.5], [X0, 1.9, -ZB + T * 0.5]]
+    .map(p => new THREE.Vector3(...p));
+  const elev = THREE.MathUtils.degToRad(retrato ? 57 : 50);
   const dir = new THREE.Vector3(0, Math.sin(elev), Math.cos(elev));
   const alvo = new THREE.Vector3(0, 0, 0.8); let d = 18;
   const cam = camera.clone(); const v = new THREE.Vector3();
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 90; i++) {
     cam.position.copy(alvo).addScaledVector(dir, d); cam.lookAt(alvo); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
     let minY = 9, maxY = -9, maxX = 0;
     for (const p of pts) { v.copy(p).project(cam); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); maxX = Math.max(maxX, Math.abs(v.x)); }
@@ -951,9 +893,9 @@ function loop() {
   requestAnimationFrame(loop);
   const agora = performance.now(); const dt = Math.min(0.05, (agora - ultimo) / 1000); ultimo = agora; tempo += dt;
   if (S.fase === 'titulo') {
-    const ang = tempo * 0.12;
-    camera.position.set(Math.sin(ang) * 13, 8.5, Math.cos(ang) * 13);
-    camera.lookAt(0, 0.6, 0);
+    const ang = tempo * 0.1, r = innerWidth / innerHeight < 0.8 ? 15 : 13.5;
+    camera.position.set(Math.sin(ang) * r, r * 0.85, Math.cos(ang) * r);
+    camera.lookAt(0, 0.4, 0.5);
   } else {
     camera.position.lerp(CAM_JOGO, Math.min(1, dt * 4)); alvoCamAtual.lerp(ALVO_CAM, Math.min(1, dt * 4)); camera.lookAt(alvoCamAtual);
     if (tremor > 0) {
@@ -976,7 +918,7 @@ function loop() {
   if (S.fase === 'combate' || S.fase === 'resultado') atualizarProjeteis(dt);
   passoAnimacoes(dt);
   animarUnidades(dt, tempo);
-  scene.traverse(o => { if (o.userData.bandeira) o.rotation.y = Math.sin(tempo * 3 + o.parent.position.x) * 0.35; });
+  arena.atualizar(tempo);
   vfx.update(dt);
   renderer.render(scene, camera);
   atualizarRotulos();
@@ -1066,4 +1008,4 @@ function gerarRetratos() {
 loop();
 
 // ganchos para testes automáticos
-window.__jogo = { S, conta, tremer, HABILIDADES, camera, CAM_JOGO, ALVO_CAM, posQuadrado, aplicarAura, niveis, lutar, comprar, novoJogo, renovar: renovarLoja, verificarFusoes, Unidade, colocar, atualizarTracos, desenharLoja, UNIDADES };
+window.__jogo = { renderer, sol, scene, S, conta, tremer, HABILIDADES, camera, CAM_JOGO, ALVO_CAM, posQuadrado, aplicarAura, niveis, lutar, comprar, novoJogo, renovar: renovarLoja, verificarFusoes, Unidade, colocar, atualizarTracos, desenharLoja, UNIDADES };
