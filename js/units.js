@@ -24,7 +24,7 @@ export const TRACOS = {
   },
   realeza: {
     nome: 'Realeza', icone: '👑', cor: '#d9b43a', niveis: [2, 4],
-    desc: ['+1 de ouro por rodada', '+3 de ouro por rodada'],
+    desc: ['+1 de elixir por rodada', '+3 de elixir por rodada'],
   },
   alianca: {
     nome: 'Aliança', icone: '🌈', cor: '#3aa86b', niveis: [2, 4],
@@ -151,7 +151,7 @@ export const UNIDADES = {
   salomao: {
     nome: 'Salomão', custo: 3, tracos: ['realeza'], funcao: 'distancia',
     vida: 660, dano: 52, velAtaque: 0.75, alcance: 3, mana: 80, cor: '#c8a23a', acessorio: 'coroa',
-    habilidade: 'Juízo de Salomão', descHab: 'Portal de sabedoria: dano igual a 15% da vida máxima dos inimigos na área. Ganha 1 de ouro (até 2 por combate).',
+    habilidade: 'Juízo de Salomão', descHab: 'Portal de sabedoria: dano igual a 15% da vida máxima dos inimigos na área. Ganha 1 de elixir (até 2 por combate).',
     frase: '“Dá a teu servo um coração entendido para julgar.” — 1Rs 3:9',
   },
   noe: {
@@ -216,32 +216,32 @@ Object.assign(UNIDADES, {
     frase: '“Aquecessem a fornalha sete vezes mais.” — Dn 3:19',
   },
   golem: {
-    nome: 'Golem de Pedra', custo: 2, tracos: ['gigantes', 'egito'], funcao: 'corpo', lado: 'trevas', escala: 1.2,
+    nome: 'Golem de Pedra', custo: 2, tracos: ['gigantes', 'egito'], funcao: 'corpo', lado: 'trevas',
     vida: 1050, dano: 42, velAtaque: 0.55, alcance: 1, mana: 90, cor: '#6a6a70', forma: 'humanoide',
     habilidade: 'Corpo de Pedra', descHab: 'Endurece: ganha escudo de 45% da vida máxima e atordoa quem está ao lado.',
     frase: '“Têm boca, mas não falam; olhos têm, mas não veem.” — Sl 115:5',
   },
   // custo 3
   dragao: {
-    nome: 'Dragão', custo: 3, tracos: ['bestas', 'trevas'], funcao: 'distancia', lado: 'trevas', escala: 1.15,
+    nome: 'Dragão', custo: 3, tracos: ['bestas', 'trevas'], funcao: 'distancia', lado: 'trevas',
     vida: 820, dano: 56, velAtaque: 0.65, alcance: 3, mana: 90, cor: '#7a1e1e', forma: 'dragao',
     habilidade: 'Sopro de Fogo', descHab: 'Sopra uma linha de fogo em direção ao alvo, com 3 explosões.',
     frase: '“O grande dragão, a antiga serpente.” — Ap 12:9',
   },
   golias: {
-    temModelo: true, nome: 'Golias', custo: 3, tracos: ['filisteus', 'gigantes'], funcao: 'corpo', lado: 'trevas', escala: 1.4, gigante: true,
+    temModelo: true, nome: 'Golias', custo: 3, tracos: ['filisteus', 'gigantes'], funcao: 'corpo', lado: 'trevas', gigante: true,
     vida: 1250, dano: 64, velAtaque: 0.6, alcance: 1, mana: 100, cor: '#8a7040', forma: 'humanoide',
     habilidade: 'Desafio do Gigante', descHab: 'Pisão que abala o chão: dano em área e atordoa por 1,2s.',
     frase: '“Hoje desafio as fileiras de Israel.” — 1Sm 17:10',
   },
   farao: {
-    nome: 'Faraó', custo: 3, tracos: ['egito', 'realeza'], funcao: 'distancia', lado: 'trevas', escala: 1.1,
+    nome: 'Faraó', custo: 3, tracos: ['egito', 'realeza'], funcao: 'distancia', lado: 'trevas',
     vida: 760, dano: 54, velAtaque: 0.7, alcance: 3, mana: 90, cor: '#d9b43a', forma: 'humanoide', coroaFarao: true,
     habilidade: 'As Pragas', descHab: 'Envia pragas sobre 3 inimigos: dano e -30% de dano deles por 4s.',
     frase: '“Quem é o Senhor, para que eu ouça a sua voz?” — Êx 5:2',
   },
   leviata: {
-    temModelo: true, nome: 'Leviatã', custo: 3, tracos: ['bestas', 'gigantes'], funcao: 'distancia', lado: 'trevas', escala: 1.35, gigante: true,
+    temModelo: true, nome: 'Leviatã', custo: 3, tracos: ['bestas', 'gigantes'], funcao: 'distancia', lado: 'trevas', gigante: true,
     vida: 1000, dano: 52, velAtaque: 0.6, alcance: 2, mana: 100, cor: '#1e4a5a', forma: 'serpente',
     habilidade: 'Maremoto', descHab: 'Onda gigante na área do alvo: dano e empurra os inimigos para trás.',
     frase: '“Podes tirar com anzol o leviatã?” — Jó 41:1',
@@ -276,7 +276,7 @@ Object.assign(UNIDADES, {
     frase: '“Ela lhe rapou as sete tranças, e retirou-se dele a sua força.” — Jz 16:19',
   },
   lami: {
-    temModelo: true, nome: 'Lami', custo: 2, tracos: ['filisteus', 'gigantes'], funcao: 'corpo', lado: 'trevas', escala: 1.3, gigante: true,
+    temModelo: true, nome: 'Lami', custo: 2, tracos: ['filisteus', 'gigantes'], funcao: 'corpo', lado: 'trevas', gigante: true,
     vida: 900, dano: 50, velAtaque: 0.6, alcance: 1, mana: 90, cor: '#6a5a40', acessorio: 'lanca',
     habilidade: 'Lança de Eixo de Tear', descHab: 'Arremessa a lança enorme em linha reta, atravessando todos os inimigos no caminho.',
     frase: '“A haste da sua lança era como eixo de tecelão.” — 1Cr 20:5',
@@ -294,7 +294,7 @@ Object.assign(UNIDADES, {
     frase: '“Herodes, rei da Judeia…” — Lc 1:5',
   },
   ninrode: {
-    temModelo: true, nome: 'Ninrode', custo: 3, tracos: ['bestas', 'gigantes'], funcao: 'distancia', lado: 'trevas', escala: 1.1,
+    temModelo: true, nome: 'Ninrode', custo: 3, tracos: ['bestas', 'gigantes'], funcao: 'distancia', lado: 'trevas',
     vida: 820, dano: 56, velAtaque: 0.75, alcance: 3, mana: 90, cor: '#5a4a2a', acessorio: 'arco',
     habilidade: 'Torre de Babel', descHab: 'Ergue a torre: inimigos em volta ficam com as línguas confundidas e atacam os próprios aliados por 3s.',
     frase: '“Ninrode, poderoso caçador diante do Senhor.” — Gn 10:9',

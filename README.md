@@ -1,6 +1,6 @@
 **Jogue no celular ou no computador:** https://notdsn.github.io/exercito-da-fe/
 
-# Exército da Fé — Combinações Bíblicas (protótipo v1)
+# Exército da Fé — Combinações Bíblicas (protótipo v3)
 
 Auto-battler no estilo TFT / Combinações Táticas (Clash Royale), com heróis da Bíblia e as forças das trevas.
 Tudo roda no navegador (Three.js já incluído na pasta `vendor/`, sem internet e sem compilação).
@@ -85,6 +85,15 @@ game/
   vendor/three/       Three.js r186
   servidor.py         servidor local
 ```
+
+## Visual v3 (estilo Clash)
+- **Câmera fixa**, alta e inclinada (55° no PC, 62° no celular em pé), enquadrando tabuleiro + banco entre a barra superior e a loja. Não há mais zoom durante a luta; o tremor de tela ficou bem sutil.
+- **Arena desenho**: gramado xadrez com bordas claras entre os quadrados, moldura **azul** do seu lado e **vermelha** do adversário, torres decorativas nas cores dos times, árvores redondas e pedras. Luz clara e suave (sem névoa sépia) e uma leve luz de borda (rim light) nos personagens.
+- **Todos do mesmo tamanho**: cada modelo é normalizado pela caixa delimitadora para 1,85 de altura (★★ = +5%, ★★★ = +10%). Os multiplicadores de gigante foram removidos.
+- **Movimento em grade**: no combate cada unidade ocupa exatamente um quadrado e anda de quadrado em quadrado (sem amontoar nem sobrepor). Empurrões, saltos e invocações sempre caem no quadrado livre mais próximo.
+- **Base colorida** (azul/vermelha) com anel branco/dourado/rosa conforme as estrelas, **barra de vida grossa** azul/vermelha com selo de estrelas, barra de mana roxa só no combate. O **nome** aparece só ao passar o mouse/tocar na unidade.
+- **Interface**: fonte Lilita One + Baloo 2 (incluídas em `assets/fonts`, licença OFL), botões e cartas gordinhos com texto contornado, custo em **gota de elixir** roxa/rosa (a moeda da loja agora se chama elixir), barra superior limpa. No celular em pé, as sinergias viram uma fileira de ícones (toque para ver o bônus) e a loja fica em duas linhas.
+- **Correção de modelos**: Hamã, Acabe, Dalila, Herodes e Lami (exportados da Tripo com `RootNode`) vinham com o esqueleto mal ligado e apareciam "estilhaçados"; o jogo recalcula as matrizes de ligação ao carregar (`consertarPele` em `js/modelos.js`).
 
 ## Licenças dos efeitos
 Os efeitos em `assets/vfx/` vêm do pacote **Seamproof VFX Sprite Sheets** (licença comprada: pode usar em jogos,

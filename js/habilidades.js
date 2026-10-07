@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {
   causarDano, curar, atordoar, buff, projetil, inimigosDe, aliadosDe, dist, maisProximo,
-  animar, textoFlutuante, estado, Unidade, limitarPos, addTemp, tremer, moedaPop,
+  animar, textoFlutuante, estado, Unidade, limitarPos, addTemp, tremer, moedaPop, reposicionar, reservarTile,
 } from './main.js';
 
 let scene, vfx, T;
@@ -18,14 +18,8 @@ function pedraMat() { return new THREE.MeshStandardMaterial({ color: '#9a9a9a', 
 
 // teleporte/salto até perto de um alvo
 function saltarPara(u, alvo, dur = 0.3, aoChegar) {
-  const ini = pos(u).clone();
-  const dir = ini.clone().sub(pos(alvo)).setY(0).normalize();
-  const fim = limitarPos(pos(alvo).clone().addScaledVector(dir, 0.8));
-  u.ocupado = dur + 0.05;
-  vfx.tocar('smoke_plume', ini, { tamanho: 1.3, duracao: 0.8, opacidade: 0.7 });
-  animar(dur, k => {
-    pos(u).lerpVectors(ini, fim, k); u.corpo.position.y = Math.sin(k * Math.PI) * 1.0;
-  }, () => { u.corpo.position.y = 0; aoChegar?.(); });
+  vfx.tocar('smoke_plume', pos(u).clone(), { tamanho: 1.3, duracao: 0.8, opacidade: 0.7 });
+  reposicionar(u, pos(alvo), dur, 1.0, aoChegar);
 }
 
 export const HABILIDADES = {
@@ -121,7 +115,9 @@ export const HABILIDADES = {
       leao.maxHp = Math.round(380 * u.mult); leao.hp = leao.maxHp; leao.dano = 34 * u.mult; leao.vel = 1.0;
       leao.alcanceMundo = T + 0.2; leao.maxMana = 0; leao.mana = 0; leao.manaMult = 1; leao.velMov = 2.6;
       Object.assign(leao, { escudo: 0, roubo: 0, livramento: 0, reducao: 0, mult: u.mult, cd: 0.4, buffs: [], atordoado: 0, vulneravel: 0, estocada: 0, morto: false, ocupado: 0 });
-      leao.root.position.copy(limitarPos(pos(u).clone().add(new THREE.Vector3(lado * 0.9, 0, 0))));
+      const lugar = reservarTile(leao, pos(u).clone().add(new THREE.Vector3(lado * T, 0, 0)));
+      if (!lugar) { leao.remover(); continue; }
+      leao.root.position.copy(lugar);
       vfx.tocar('golden_swirl', leao.root.position, { tamanho: 1.6, duracao: 0.8 });
       estado.combatentes.push(leao);
     }
@@ -129,8 +125,9 @@ export const HABILIDADES = {
   jonas(u) {
     const alvos = inimigosDe(u); if (!alvos.length) return;
     const longe = porMaior(alvos, x => dist(u, x));
+    u.mov = null;
     const ini = pos(u).clone();
-    const fim = limitarPos(pos(longe).clone().add(new THREE.Vector3(0, 0, u.time === 'jogador' ? -0.9 : 0.9)));
+    const fim = reservarTile(u, pos(longe).clone().add(new THREE.Vector3(0, 0, u.time === 'jogador' ? -T : T))) || ini.clone();
     // o grande peixe
     const peixe = new THREE.Group();
     const corpo = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 1), new THREE.MeshStandardMaterial({ color: '#3a6a8a', flatShading: true }));
@@ -173,8 +170,7 @@ export const HABILIDADES = {
       const dx = pos(a).x - x0;
       if (Math.abs(dx) < 1.5 * T) {
         const alvoX = x0 + (dx >= 0 ? 1 : -1) * 2.0 * T;
-        const ini = pos(a).x;
-        animar(0.4, k => { pos(a).x = ini + (alvoX - ini) * k; limitarPos(pos(a)); });
+        reposicionar(a, new THREE.Vector3(alvoX, 0, pos(a).z), 0.4);
         causarDano(u, a, 170 * u.mult, { mostrar: true }); atordoar(a, 0.7);
       }
     }
@@ -185,7 +181,7 @@ export const HABILIDADES = {
     vfx.tocar('arcane_portal', c, { chao: true, tamanho: 3.6, duracao: 1.2, tint: [1.2, 1.0, 0.6] });
     vfx.tocar('arcane_burst', c, { tamanho: 2.0, duracao: 0.8, tint: [1.2, 1.0, 0.5] });
     for (const a of naArea(inimigosDe(u), c, 1.9)) causarDano(u, a, a.maxHp * (0.15 + 0.05 * (u.estrelas - 1)) + 60 * u.mult, { mostrar: true });
-    if (u.time === 'jogador' && estado.ouroSalomao < 2) { estado.ouroSalomao++; estado.ouro++; textoFlutuante(u, '+1 🪙', 'ouro'); moedaPop(1); }
+    if (u.time === 'jogador' && estado.ouroSalomao < 2) { estado.ouroSalomao++; estado.ouro++; textoFlutuante(u, '+1 elixir', 'ouro'); moedaPop(1); }
   },
   noe(u) { tremer(0.15);
     for (const x of naArea(aliadosDe(u), pos(u), 3.0)) {
@@ -223,12 +219,8 @@ export const HABILIDADES = {
   // ---------------- TREVAS ----------------
   javali_besta(u) {
     const alvo = porMaior(inimigosDe(u), x => dist(u, x)); if (!alvo) return;
-    const ini = pos(u).clone();
-    const dir = pos(alvo).clone().sub(ini).setY(0).normalize();
-    const fim = limitarPos(pos(alvo).clone().addScaledVector(dir, -0.75));
-    u.ocupado = 0.4;
-    vfx.tocar('smoke_plume', ini, { tamanho: 1.2, duracao: 0.7 });
-    animar(0.35, k => pos(u).lerpVectors(ini, fim, k), () => {
+    vfx.tocar('smoke_plume', pos(u).clone(), { tamanho: 1.2, duracao: 0.7 });
+    reposicionar(u, pos(alvo), 0.35, 0, () => {
       vfx.tocar('impact_fire', pos(alvo), { tamanho: 1.5, duracao: 0.5 });
       causarDano(u, alvo, 150 * u.mult, { mostrar: true }); atordoar(alvo, 1.0); u.alvo = alvo;
     });
@@ -297,8 +289,7 @@ export const HABILIDADES = {
     for (const a of naArea(inimigosDe(u), c, 2.2)) {
       causarDano(u, a, 200 * u.mult, { mostrar: true });
       const dir = pos(a).clone().sub(pos(u)).setY(0).normalize();
-      const ini = pos(a).clone(), fim = limitarPos(ini.clone().addScaledVector(dir, 1.4));
-      animar(0.35, k => pos(a).lerpVectors(ini, fim, k));
+      reposicionar(a, pos(a).clone().addScaledVector(dir, 1.4), 0.35);
     }
   },
   // ---------------- NOVOS (modelos da Tripo) ----------------

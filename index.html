@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a1e16'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23ffd76a'%3E%E2%9C%A0%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23123a7a'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23ffd23a'%3E%E2%9C%A0%3C/text%3E%3C/svg%3E">
 <title>Exército da Fé — Batalhas Bíblicas</title>
 <link rel="stylesheet" href="css/estilo.css">
 <script type="importmap">
@@ -17,12 +17,20 @@
 <div id="cena"></div>
 <div id="rotulos"></div>
 
-<!-- HUD -->
+<!-- HUD (barra superior) -->
 <div id="hud" class="oculta">
-  <div class="bloco"><span id="rodada">Rodada 1</span><small id="nomeRodada"></small></div>
-  <div class="bloco vs"><small>Adversário</small><span id="adversario"></span></div>
-  <div class="bloco"><span title="Sua vida">❤️ <b id="vida">30</b></span><span title="Ouro">🪙 <b id="ouro">0</b></span><span title="Unidades em campo">⚔️ <b id="campo">0/2</b></span></div>
-  <div class="bloco"><span id="timer">35s</span><button id="btnLutar">Lutar! ⚔️</button></div>
+  <div class="hEsq">
+    <div class="rodadaBox"><b id="rodada">Rodada 1</b><small id="nomeRodada"></small></div>
+  </div>
+  <div class="hCentro">
+    <div class="vsBox"><small>contra</small><span id="adversario"></span></div>
+    <div id="timer">35s</div>
+  </div>
+  <div class="hDir">
+    <div class="pilula vida" title="Sua vida"><i class="ic coracao"></i><b id="vida">30</b></div>
+    <div class="pilula campo" title="Unidades em campo"><i class="ic escudo"></i><b id="campo">0/2</b></div>
+    <div class="pilula elixir" title="Elixir"><i class="gota"></i><b id="ouro">0</b></div>
+  </div>
 </div>
 <div id="tracos" class="oculta"></div>
 <div id="rivais" class="oculta"></div>
@@ -30,10 +38,11 @@
 <!-- Loja -->
 <div id="loja" class="oculta">
   <div class="lado">
-    <button id="btnRenovar" title="Atalho: D">🔄 Renovar<br><small>1 🪙</small></button>
-    <div class="ouroLoja">🪙 <b id="ouroLoja">0</b></div>
+    <button id="btnRenovar" title="Atalho: D"><span class="seta">⟳</span><span class="custoBtn"><i class="gota p"></i>1</span></button>
+    <div class="elixirLoja"><i class="gota g"></i><b id="ouroLoja">0</b></div>
   </div>
   <div id="cartas"></div>
+  <div class="lado dir"><button id="btnLutar">Lutar!</button></div>
   <div id="vendaTxt">Soltar para vender</div>
 </div>
 
@@ -61,9 +70,9 @@
     <details class="como">
       <summary>Como jogar</summary>
       <ul>
-        <li>Compre heróis e criaturas na <b>loja</b> com 🪙 ouro. Arraste do <b>banco</b> para o seu lado do tabuleiro.</li>
+        <li>Compre heróis e criaturas na <b>loja</b> com <b>elixir</b>. Arraste do <b>banco</b> para o seu lado do tabuleiro.</li>
         <li><b>3 cópias iguais</b> se fundem em uma unidade ★★ (e 3 ★★ viram ★★★).</li>
-        <li>Junte <b>2 ou 4</b> unidades do mesmo traço para ativar <b>sinergias</b> (painel à esquerda).</li>
+        <li>Junte <b>2 ou 4</b> unidades do mesmo traço para ativar <b>sinergias</b> (ícones à esquerda — toque para ver o bônus).</li>
         <li>Aperte <b>Lutar!</b> (ou espaço): o combate é automático. Mana cheia = habilidade especial!</li>
         <li>Arraste uma unidade para a loja para <b>vender</b>. <b>D</b> renova a loja.</li>
         <li>Derrote todos os rivais para vencer. Se sua vida chegar a 0, fim de jogo.</li>

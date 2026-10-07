@@ -8,6 +8,15 @@ import { caminhoModelo } from './units.js';
 import { Rig } from './rig.js';
 
 const PELE = '#c99a6e';
+export const ALTURA_PADRAO = 1.85;
+
+// Alguns GLBs da Tripo (os exportados com 'RootNode') vêm com as matrizes de ligação
+// do esqueleto erradas e a malha "explode" em estilhaços. Como o arquivo está em T-pose
+// (pose de repouso = pose de ligação), recalculamos as inversas a partir da pose atual.
+function consertarPele(cena) {
+  cena.updateMatrixWorld(true);
+  cena.traverse(o => { if (o.isSkinnedMesh) { o.skeleton.calculateInverses(); o.bind(o.skeleton, o.matrixWorld); } });
+}
 const mats = {};
 function mat(cor, extra = {}) {
   const k = cor + JSON.stringify(extra);
@@ -36,7 +45,7 @@ export class Modelos {
     const caminhos = [...new Set(ids.map(id => caminhoModelo(id, defs[id])))];
     let n = 0;
     await Promise.all(caminhos.map(c => new Promise(res => {
-      this.loader.load(c, g => { this.porArquivo[c] = g; aoProgredir?.(++n, caminhos.length); res(); },
+      this.loader.load(c, g => { consertarPele(g.scene); this.porArquivo[c] = g; aoProgredir?.(++n, caminhos.length); res(); },
         undefined, err => { console.warn('Não consegui carregar o modelo', c, err); aoProgredir?.(++n, caminhos.length); res(); });
     })));
     for (const id of ids) { const g = this.porArquivo[caminhoModelo(id, defs[id])]; if (g) this.gltfs[id] = g; }
@@ -46,7 +55,9 @@ export class Modelos {
   criar(id, def, inimigo) {
     const g = this.gltfs[id];
     if (g) return this.criarGLB(g, def);
-    return { obj: this.boneco(id, def), mixer: null, rig: null, altura: 1.35 * (def.escala || 1) };
+    const obj = this.boneco(id, def);
+    const alt = new THREE.Box3().setFromObject(obj).max.y;
+    return { obj, mixer: null, rig: null, altura: Math.min(ALTURA_PADRAO, alt || ALTURA_PADRAO) };
   }
 
   criarGLB(g, def) {
@@ -59,7 +70,7 @@ export class Modelos {
     cena.updateMatrixWorld(true);
     const caixa = new THREE.Box3().setFromObject(cena);
     const tam = caixa.getSize(new THREE.Vector3());
-    const alvo = (def.altura || 1.55) * (def.escala || 1);
+    const alvo = def.altura || ALTURA_PADRAO; // todos do mesmo tamanho
     const esc = alvo / Math.max(0.0001, tam.y);
     cena.scale.multiplyScalar(esc);
     cena.updateMatrixWorld(true);
@@ -83,7 +94,7 @@ export class Modelos {
     if (f === 'fera' || f === 'dragao') this.fera(grp, def, f === 'dragao', id === 'leao');
     else if (f === 'serpente') this.serpente(grp, def);
     else this.humanoide(grp, def, trevas);
-    grp.scale.multiplyScalar(def.escala || 1);
+    grp.scale.multiplyScalar(f === 'humanoide' ? 1.33 : 1.45);
     return grp;
   }
 

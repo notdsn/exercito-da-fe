@@ -1,0 +1,4 @@
+Fontes incluídas (SIL Open Font License 1.1, uso livre inclusive comercial):
+- Lilita One (Juan Montoreano) — títulos, números, botões
+- Baloo 2 (Ek Type) — textos
+Fonte: Google Fonts.
