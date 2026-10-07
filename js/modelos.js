@@ -119,6 +119,65 @@ function malha(geo, m, x = 0, y = 0, z = 0) {
   const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; return o;
 }
 
+
+// ---- memória de GPU (iPhone) ----
+const TEX_MAX = 512;
+// o arquivo pede textura de cor mas o material ficou sem (decodificação falhou em silêncio → boneco cinza)
+function texturasFaltando(g) {
+  const js = g.parser && g.parser.json; if (!js || !js.materials) return false;
+  const pedem = new Set(); js.materials.forEach((m, i) => { if (m.pbrMetallicRoughness && m.pbrMetallicRoughness.baseColorTexture) pedem.add(i); });
+  if (!pedem.size) return false;
+  let falta = false;
+  g.scene.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) { const ref = g.parser.associations.get(m); if (ref && pedem.has(ref.materials) && (!m.map || !m.map.image)) falta = true; } });
+  return falta;
+}
+function liberar(g) { g.scene.traverse(o => { if (o.isMesh) { o.geometry.dispose(); for (const m of [].concat(o.material)) { for (const k in m) if (m[k] && m[k].isTexture) m[k].dispose(); m.dispose(); } } }); }
+// personagens são pequenos na tela: só a textura de cor (e emissiva), no máximo 512 px
+function aliviarTexturas(raiz) {
+  const feitas = new Map();
+  const reduzir = t => {
+    if (!t || !t.image) return t; if (feitas.has(t)) return feitas.get(t);
+    const im = t.image, w = im.width || 0, h = im.height || 0;
+    if (Math.max(w, h) > TEX_MAX && typeof document !== 'undefined') {
+      const k = TEX_MAX / Math.max(w, h), cv = document.createElement('canvas');
+      cv.width = Math.round(w * k); cv.height = Math.round(h * k);
+      cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+      if (im.close) im.close();
+      t.image = cv; t.needsUpdate = true;
+    }
+    feitas.set(t, t); return t;
+  };
+  raiz.traverse(o => {
+    if (!o.isMesh) return;
+    for (const m of [].concat(o.material)) {
+      for (const k of ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap', 'displacementMap']) if (m[k]) { m[k].dispose(); m[k] = null; }
+      if ('metalness' in m) { m.metalness = 0; m.roughness = Math.max(0.7, m.roughness); }
+      reduzir(m.map); reduzir(m.emissiveMap);
+      m.needsUpdate = true;
+    }
+  });
+}
+
+
+// pesos "de longe" (ex.: ponta do cajado meio na mão, meio na coluna; manga meio no braço, meio no quadril)
+// esticam a malha quando o braço gira. Só mantemos influências do osso dominante, do pai e dos filhos dele.
+function pesosVizinhos(raiz) {
+  raiz.traverse(o => {
+    if (!o.isSkinnedMesh) return;
+    const B = o.skeleton.bones, g = o.geometry, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight; if (!SI || !SW) return;
+    const viz = B.map(b => new Set([b, b.parent, ...b.children].filter(x => x && x.isBone).map(x => B.indexOf(x)).filter(i => i >= 0)));
+    let mexidos = 0;
+    for (let i = 0; i < SI.count; i++) {
+      let dom = -1, wd = 0; for (let c = 0; c < 4; c++) { const w = SW.getComponent(i, c); if (w > wd) { wd = w; dom = SI.getComponent(i, c); } }
+      if (dom < 0) continue; let soma = 0, mudou = false; const ws = [0, 0, 0, 0];
+      for (let c = 0; c < 4; c++) { const w = SW.getComponent(i, c); if (w > 0 && !viz[dom].has(SI.getComponent(i, c))) { mudou = true; continue; } ws[c] = w; soma += w; }
+      if (!mudou || soma <= 0) continue;
+      for (let c = 0; c < 4; c++) SW.setComponent(i, c, ws[c] / soma); mexidos++;
+    }
+    if (mexidos) SW.needsUpdate = true;
+  });
+}
+
 export class Modelos {
   constructor() {
     this.disponiveis = new Set(); this.chibi = new Set(); this.gltfs = {}; this.porArquivo = {};
@@ -141,10 +200,22 @@ export class Modelos {
     const ids = Object.keys(defs).filter(id => this.disponiveis.has(arquivoDe(id)));
     const caminhos = [...new Set(ids.map(cam))];
     let n = 0;
-    await Promise.all(caminhos.map(c => new Promise(res => {
-      this.loader.load(c, g => { g.semPele = consertarPele(g.scene); this.porArquivo[c] = g; aoProgredir?.(++n, caminhos.length); res(); },
-        undefined, err => { console.warn('Não consegui carregar o modelo', c, err); aoProgredir?.(++n, caminhos.length); res(); });
-    })));
+    // no máximo 3 arquivos por vez (decodificar dezenas de texturas juntas estoura a memória do iPhone)
+    // e, se alguma textura falhar ao decodificar (o boneco ficaria cinza), tenta o arquivo de novo
+    const carregar = c => new Promise(res => this.loader.load(c, res, undefined, err => { console.warn('Não consegui carregar o modelo', c, err); res(null); }));
+    const fila = [...caminhos];
+    const trabalhador = async () => {
+      while (fila.length) {
+        const c = fila.shift();
+        let g = await carregar(c);
+        for (let tent = 0; g && texturasFaltando(g) && tent < 2; tent++) {
+          console.warn('Texturas faltando em', c, '— tentando de novo'); liberar(g); g = await carregar(c);
+        }
+        if (g) { aliviarTexturas(g.scene); g.semPele = consertarPele(g.scene); if (!g.semPele) pesosVizinhos(g.scene); this.porArquivo[c] = g; }
+        aoProgredir?.(++n, caminhos.length);
+      }
+    };
+    await Promise.all([0, 1, 2].map(trabalhador));
     for (const id of ids) { const g = this.porArquivo[cam(id)]; if (g) { g.chibiNativo = CHIBI_NATIVO.has(arquivoDe(id)) || this.chibi.has(arquivoDe(id)); this.gltfs[id] = g; } }
   }
 

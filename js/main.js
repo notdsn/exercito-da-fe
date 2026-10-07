@@ -24,13 +24,36 @@ const $ = s => document.querySelector(s);
 
 // ---------------- Cena 3D (arena estilo Clash) ----------------
 const celular = matchMedia('(pointer: coarse)').matches || Math.min(innerWidth, innerHeight) < 700;
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+// iPhone/iPad (o iPadOS se apresenta como Mac com toque): o Safari mata a aba quando a GPU passa do limite,
+// então lá usamos menos pixels e sombra menor. Sem preserveDrawingBuffer (era um buffer de tela extra à toa).
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const POUCA_MEMORIA = IOS || (navigator.deviceMemory && navigator.deviceMemory <= 4);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(POUCA_MEMORIA ? 1.5 : 2, window.devicePixelRatio));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 1.12;
 $('#cena').appendChild(renderer.domElement);
+// Perda do contexto WebGL (iOS faz isso quando falta memória): o three já chama preventDefault e, quando o
+// navegador devolve o contexto, recria o estado e reenvia geometrias/texturas (as imagens continuam na memória).
+// Aqui só pausamos o desenho e avisamos; se não voltar em 6 s, recarregamos a página.
+let contextoPerdido = false, timerContexto = 0;
+renderer.domElement.addEventListener('webglcontextlost', e => {
+  e.preventDefault(); contextoPerdido = true; console.info('WebGL: contexto perdido');
+  avisoContexto(true); clearTimeout(timerContexto);
+  timerContexto = setTimeout(() => { if (contextoPerdido) location.reload(); }, 6000);
+}, false);
+renderer.domElement.addEventListener('webglcontextrestored', () => {
+  contextoPerdido = false; clearTimeout(timerContexto); console.info('WebGL: contexto restaurado');
+  scene.traverse(o => { for (const m of [].concat(o.material || [])) { m.needsUpdate = true; for (const k in m) if (m[k] && m[k].isTexture) m[k].needsUpdate = true; } });
+  avisoContexto(false);
+}, false);
+function avisoContexto(mostrar) {
+  let el = document.getElementById('avisoGPU');
+  if (!el) { el = document.createElement('div'); el.id = 'avisoGPU'; el.textContent = 'Recarregando gráficos…'; el.style.cssText = 'position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);z-index:99;background:#000a;color:#fff;font:700 16px sans-serif;padding:12px 18px;border-radius:12px;pointer-events:none'; document.body.appendChild(el); }
+  el.style.display = mostrar ? 'block' : 'none';
+}
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 140);
@@ -42,7 +65,7 @@ camera.position.copy(CAM_JOGO); camera.lookAt(ALVO_CAM);
 scene.add(new THREE.HemisphereLight('#e4f3ff', '#6f8f45', 0.78));
 const sol = new THREE.DirectionalLight('#fff0d4', 2.25);
 sol.position.set(-9, 14, 4); sol.castShadow = true;
-sol.shadow.mapSize.set(celular ? 1024 : 2048, celular ? 1024 : 2048); sol.shadow.radius = 3; sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.02;
+const TAM_SOMBRA = POUCA_MEMORIA ? 1024 : celular ? 1024 : 2048; sol.shadow.mapSize.set(TAM_SOMBRA, TAM_SOMBRA); sol.shadow.radius = 3; sol.shadow.bias = -0.0004; sol.shadow.normalBias = 0.02;
 Object.assign(sol.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15, near: 1, far: 50 }); sol.shadow.camera.updateProjectionMatrix();
 scene.add(sol); scene.add(sol.target);
 const contraLuz = new THREE.DirectionalLight('#ffe8c8', 0.55); contraLuz.position.set(5, 8, -10); scene.add(contraLuz);
@@ -1057,7 +1080,7 @@ function loop() {
   animarUnidades(dt, tempo);
   arena.atualizar(tempo);
   vfx.update(dt);
-  renderer.render(scene, camera);
+  if (!contextoPerdido) renderer.render(scene, camera);
   atualizarRotulos();
 }
 
@@ -1132,29 +1155,39 @@ async function carregarArenaGLB() {
   } catch (e) { /* sem modelos: fica o procedural */ }
 }
 const retratos = {};
+// Retratos da loja/placar: desenhados UMA vez, pequenos (128x96), com o próprio renderer do jogo num canto
+// da tela e copiados na hora para um canvas 2D. Antes era um segundo WebGLRenderer, que no iPhone
+// reenviava TODAS as texturas para outro contexto (memória de GPU em dobro → Safari derrubava a aba).
 function gerarRetratos() {
+  const W = 128, H = 96;
   try {
-    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    r.setSize(160, 120); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping;
     const cena = new THREE.Scene();
-    r.toneMappingExposure = 1.35;
     cena.add(new THREE.HemisphereLight('#fff6e8', '#6a5070', 2.4));
     const l = new THREE.DirectionalLight('#ffe8c8', 3.0); l.position.set(2, 3, 4); cena.add(l);
     const frente = new THREE.DirectionalLight('#ffffff', 1.4); frente.position.set(0, 1, 5); cena.add(frente);
     const borda = new THREE.DirectionalLight('#c8e0ff', 2.0); borda.position.set(-3, 2, -3); cena.add(borda);
-    const cam = new THREE.PerspectiveCamera(30, 160 / 120, 0.1, 50);
+    const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50);
+    const pr = renderer.getPixelRatio(), tela = renderer.domElement;
+    const out = document.createElement('canvas'); out.width = W; out.height = H; const g = out.getContext('2d');
+    const tm = renderer.toneMapping, ex = renderer.toneMappingExposure, cor = new THREE.Color(); renderer.getClearColor(cor); const alfa = renderer.getClearAlpha();
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.35;
+    renderer.setScissorTest(true); renderer.setViewport(0, 0, W / pr, H / pr); renderer.setScissor(0, 0, W / pr, H / pr);
+    renderer.setClearColor(0x000000, 0); renderer.shadowMap.autoUpdate = false;
     for (const id of Object.keys(UNIDADES)) {
       const def = UNIDADES[id];
-      const { obj, altura } = modelos.criar(id, def, false);
+      const { obj } = modelos.criar(id, def, false);
       const caixa = new THREE.Box3().setFromObject(obj); const h = Math.max(0.5, caixa.max.y);
       obj.rotation.y = -0.35; cena.add(obj);
       if (modelos.gltfs[id]) { obj.rotation.y = -0.3; cam.position.set(0, h * 0.78, h * 1.25); cam.lookAt(0, h * 0.68, 0); }
       else { cam.position.set(0, h * 0.62, h * 2.0); cam.lookAt(0, h * 0.55, 0); }
-      r.render(cena, cam);
-      retratos[id] = r.domElement.toDataURL('image/png');
+      renderer.clear(); renderer.render(cena, cam);
+      g.clearRect(0, 0, W, H); g.drawImage(tela, 0, tela.height - H, W, H, 0, 0, W, H); // lido antes de a tela ser apresentada
+      retratos[id] = out.toDataURL('image/png');
       cena.remove(obj);
     }
-    r.dispose(); r.forceContextLoss?.();
+    renderer.setScissorTest(false); renderer.setClearColor(cor, alfa); renderer.shadowMap.autoUpdate = true;
+    renderer.toneMapping = tm; renderer.toneMappingExposure = ex;
+    const tam = renderer.getSize(new THREE.Vector2()); renderer.setViewport(0, 0, tam.x, tam.y); renderer.render(scene, camera); // repinta o quadro normal antes de apresentar
   } catch (e) { console.warn('Retratos não gerados', e); }
   if (S.fase === 'preparo') desenharLoja();
 }

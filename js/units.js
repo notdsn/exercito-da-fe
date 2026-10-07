@@ -106,7 +106,7 @@ export const UNIDADES = {
     frase: '“Quem sabe se para tal tempo como este chegaste a este reino?” — Et 4:14',
   },
   debora: {
-    nome: 'Débora', custo: 2, tracos: ['juizes', 'profetas'], funcao: 'distancia',
+    rigBracos: 0, nome: 'Débora', custo: 2, tracos: ['juizes', 'profetas'], funcao: 'distancia',
     vida: 540, dano: 48, velAtaque: 0.8, alcance: 2, mana: 70, cor: '#2f6f6a', acessorio: 'lanca',
     habilidade: 'Cântico de Vitória', descHab: 'Canta para os aliados próximos: +50% de velocidade de ataque por 5s.',
     frase: '“Desperta, desperta, Débora, entoa um cântico!” — Jz 5:12',
@@ -137,7 +137,7 @@ export const UNIDADES = {
   },
   // ----- custo 3 -----
   elias: {
-    temModelo: true, nome: 'Elias', custo: 3, tracos: ['profetas'], funcao: 'distancia',
+    temModelo: true, rigBracos: 0, nome: 'Elias', custo: 3, tracos: ['profetas'], funcao: 'distancia',
     vida: 640, dano: 55, velAtaque: 0.75, alcance: 3, mana: 80, cor: '#2c4f9a', acessorio: 'cajado', barba: '#bbbbbb',
     habilidade: 'Fogo do Céu', descHab: 'Faz cair fogo do céu sobre 3 inimigos (o alvo principal recebe dano extra).',
     frase: '“Então caiu fogo do Senhor.” — 1Rs 18:38',
@@ -252,7 +252,7 @@ Object.assign(UNIDADES, {
 // ----- Novos personagens (modelos da Tripo) -----
 Object.assign(UNIDADES, {
   balaao: {
-    temModelo: true, nome: 'Balaão', custo: 1, tracos: ['profetas', 'intriga'], funcao: 'distancia',
+    temModelo: true, rigBracos: 0, nome: 'Balaão', custo: 1, tracos: ['profetas', 'intriga'], funcao: 'distancia',
     vida: 430, dano: 38, velAtaque: 0.75, alcance: 3, mana: 70, cor: '#7a5a8a', acessorio: 'cajado', barba: '#cccccc',
     habilidade: 'Maldição que Vira Bênção', descHab: 'Tenta amaldiçoar: causa dano nos inimigos em volta do alvo, mas a maldição vira bênção e cura os 2 aliados mais feridos.',
     frase: '“Como amaldiçoarei o que Deus não amaldiçoou?” — Nm 23:8',
@@ -264,7 +264,7 @@ Object.assign(UNIDADES, {
     frase: '“Hamã procurou destruir todos os judeus.” — Et 3:6',
   },
   acabe: {
-    temModelo: true, nome: 'Acabe', custo: 2, tracos: ['realeza', 'intriga'], funcao: 'distancia', lado: 'trevas',
+    temModelo: true, rigBracos: 0, nome: 'Acabe', custo: 2, tracos: ['realeza', 'intriga'], funcao: 'distancia', lado: 'trevas',
     vida: 520, dano: 46, velAtaque: 0.85, alcance: 3, mana: 70, cor: '#6a2a2a', acessorio: 'arco',
     habilidade: 'Flechas ao Acaso', descHab: 'Dispara 5 flechas em inimigos aleatórios.',
     frase: '“Um homem entesou o arco, à ventura, e feriu o rei.” — 1Rs 22:34',
@@ -282,7 +282,7 @@ Object.assign(UNIDADES, {
     frase: '“A haste da sua lança era como eixo de tecelão.” — 1Cr 20:5',
   },
   gabriel: {
-    temModelo: true, modelo: 'assets/models/anjo_gabriel.glb', nome: 'Anjo Gabriel', custo: 3, tracos: ['celestial', 'profetas'], funcao: 'distancia',
+    temModelo: true, rigBracos: 0, modelo: 'assets/models/anjo_gabriel.glb', nome: 'Anjo Gabriel', custo: 3, tracos: ['celestial', 'profetas'], funcao: 'distancia',
     vida: 720, dano: 54, velAtaque: 0.75, alcance: 3, mana: 80, cor: '#4a6ad9', acessorio: 'asas',
     habilidade: 'Anúncio Celestial', descHab: 'A trombeta revela os inimigos: todos recebem +25% de dano por 5s, e os aliados ganham 30 de mana.',
     frase: '“Eu sou Gabriel, que assisto diante de Deus.” — Lc 1:19',
@@ -331,7 +331,7 @@ export function papelDe(id) {
 // atualizar assets/models/modelos.json — o jogo só carrega o que estiver listado ali.
 export const ARQUIVO = {
   // [preferido, reserva]: usa o primeiro que existir em assets/models/ (modelos.json)
-  davi: ['davi', 'arqueiro_capa_vermelha'], jael: ['jael', 'assassina_deserto'],
+  davi: ['davi', 'arqueiro_capa_vermelha'], jael: ['jael', 'assassina_deserto'], // (2º nome = modelos realistas antigos, se voltarem),
   miguel: 'anjo_miguel', gabriel: 'anjo_gabriel',
   esqueleto_chifres: 'esqueleto_chifrudo', figura_sombria: 'mago_sombrio',
   leao: 'leao_lobo',                     // leões invocados por Daniel usam o leão-lobo

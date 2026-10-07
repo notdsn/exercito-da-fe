@@ -6,6 +6,7 @@ import * as THREE from 'three';
 const NOMES = {
   hips: /hips$/i, spine: /spine$/i, spine1: /spine1$/i, spine2: /spine2$/i, neck: /neck$/i, head: /head$/i,
   lArm: /leftarm$/i, lFore: /leftforearm$/i, rArm: /rightarm$/i, rFore: /rightforearm$/i,
+  lHand: /lefthand$/i, rHand: /righthand$/i,
   lUp: /leftupleg$/i, lLeg: /leftleg$/i, rUp: /rightupleg$/i, rLeg: /rightleg$/i,
 };
 const D = THREE.MathUtils.degToRad;
@@ -46,6 +47,11 @@ export class Rig {
       const qp = new THREE.Quaternion(); b.parent.getWorldQuaternion(qp); qp.premultiply(qRaizInv); // pai no espaço do modelo
       this.info[k] = { rest: b.quaternion.clone(), qp, qpInv: qp.clone().invert() };
     }
+    // cajado/cetro/lança em pé na mão (modelos em "T"): ao baixar o braço, a arma deitava (Moisés, Elias,
+    // Jonas, Acabe...). Nessas mãos giramos o pulso ao contrário para a arma continuar em pé.
+    this.armaEmPe = { l: Rig.armaVertical(raiz, ossos.lHand), r: Rig.armaVertical(raiz, ossos.rHand) };
+    // modelos chibi da Tripo: pele refeita automaticamente; golpes muito abertos esticavam capas/asas/mangas
+    this.amp = opcoes.chibi === false ? 0.5 : 1;
     this.restHipsY = ossos.hips.position.y;
     this.t = Math.random() * 10;
     this.ataque = 0; this.conjuro = 0; this.susto = 0; this.lado = Math.random() < 0.5 ? 1 : -1;
@@ -68,6 +74,34 @@ export class Rig {
     esticar(ossos.lUp, k.pernaComp, k.pernaGross); esticar(ossos.rUp, k.pernaComp, k.pernaGross);
     // compensa no osso filho para não "achatar" pés/canelas em dobro
     for (const b of [ossos.lLeg, ossos.rLeg]) if (b) { const e = eixoDe(b); b.scale.setScalar(1 / k.pernaGross); b.scale[e] = 1; }
+  }
+  // a mão segura algo comprido na vertical? (vértices presos ao osso da mão espalhados para cima/baixo)
+  static armaVertical(raiz, mao) {
+    if (!mao) return false;
+    raiz.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(raiz.matrixWorld).invert(), v = new THREE.Vector3();
+    const pm = mao.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+    let hMin = Infinity, hMax = -Infinity; const ys = [];
+    raiz.traverse(o => {
+      if (!o.isSkinnedMesh) return;
+      const j = o.skeleton.bones.indexOf(mao); const g = o.geometry, P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
+      const m = new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld);
+      for (let i = 0; i < P.count; i++) {
+        v.fromBufferAttribute(P, i).applyMatrix4(m); hMin = Math.min(hMin, v.y); hMax = Math.max(hMax, v.y);
+        if (j < 0 || !SI) continue;
+        let best = 0, bj = -1; for (let c = 0; c < 4; c++) { const w = SW.getComponent(i, c); if (w > best) { best = w; bj = SI.getComponent(i, c); } }
+        if (bj === j && best > 0.5) ys.push(v.x - pm.x, v.y - pm.y, v.z - pm.z);
+      }
+    });
+    const H = hMax - hMin; if (!(H > 0)) return false;
+    // haste acima da mão (cajado, cetro, lança): muitos vértices bem acima dela e perto na horizontal
+    let acima = 0; const n = ys.length / 3;
+    for (let i = 0; i < ys.length; i += 3) if (ys[i + 1] > 0.16 * H && Math.hypot(ys[i], ys[i + 2]) < 0.12 * H) acima++;
+    return acima >= 150 && acima >= 0.25 * n;
+  }
+  girarQ(k, q) {
+    const b = this.ossos[k]; if (!b) return; const i = this.info[k];
+    b.quaternion.copy(i.qpInv).multiply(q).multiply(i.qp).multiply(i.rest);
   }
   // aplica rotação (euler XYZ em graus, espaço do modelo) por cima da pose de descanso
   girar(k, x, y, z) {
@@ -98,14 +132,21 @@ export class Rig {
     this.girar('spine1', resp * 1.2 - c * 8, 0, 0);
     this.girar('head', -c * 12 + f * 8, 0, 0);
     // braços: T-pose -> relaxado (~72° para baixo), balanço ao andar, golpe, conjuro (para cima)
-    const baixo = this.baixo0 * (1 - c) - Math.min(60, this.baixo0 + 20) * c;   // c=1 => braços erguidos
+    const baixo = this.baixo0 * (1 - c) - Math.min(60, this.baixo0 + 20) * c * this.amp;   // c=1 => braços erguidos
     const balL = -passo * 22, balR = passo * 22;
     const golpeR = this.lado > 0 ? a : 0, golpeL = this.lado < 0 ? a : 0;
     if (!this.bracosFixos) {
-    this.girar('lArm', balL - golpeL * 95 + c * 20, 0, -baixo + 6 * resp * (1 - c));
-    this.girar('rArm', balR - golpeR * 95 + c * 20, 0, baixo - 6 * resp * (1 - c));
+    this.girar('lArm', balL - golpeL * 95 * this.amp + c * 20 * this.amp, 0, -baixo + 6 * resp * (1 - c));
+    this.girar('rArm', balR - golpeR * 95 * this.amp + c * 20 * this.amp, 0, baixo - 6 * resp * (1 - c));
     this.girar('lFore', 0, -20 - golpeL * 30 - (andando ? 15 : 0), 0);
     this.girar('rFore', 0, 20 + golpeR * 30 + (andando ? 15 : 0), 0);
+    // pulso: desfaz a descida do braço e a torção do antebraço (fica só o golpe) => arma continua em pé
+    for (const [lado, k, sz, sy] of [['l', 'lHand', -1, -1], ['r', 'rHand', 1, 1]]) {
+      if (!this.armaEmPe[lado]) continue;
+      _e.set(0, 0, D(sz * (baixo - 6 * resp * (1 - c))), 'XYZ'); _qa.setFromEuler(_e);
+      _e.set(0, D(sy * (20 + (andando ? 15 : 0))), 0, 'XYZ'); _qb.setFromEuler(_e);
+      _qa.multiply(_qb).invert(); this.girarQ(k, _qa);
+    }
     }
     // pernas
     this.girar('lUp', -passo * 28 - a * 8, 0, 0);
