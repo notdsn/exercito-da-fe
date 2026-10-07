@@ -44,27 +44,28 @@ Os originais continuam em `~/Downloads`. Para otimizar novos modelos: `tools/oti
 Como os modelos da Tripo vêm em pose T e **sem animação**, o jogo anima o esqueleto (ossos estilo Mixamo) por código
 (`js/rig.js`): braços relaxados, respiração, passos ao andar, golpe, braços erguidos ao lançar habilidade, susto ao levar dano e queda ao morrer.
 
-Modelos já ligados às unidades:
+**Todas as 35 unidades (e os leões do Daniel) já têm modelo 3D** — não há mais bonecos provisórios.
+Qual arquivo cada unidade usa fica numa tabela só, `ARQUIVO` em `js/units.js` (o padrão é o próprio id:
+`moises` → `moises.glb`). Exceções: Davi → `davi.glb` (senão `arqueiro_capa_vermelha.glb`), Jael → `jael.glb`
+(senão `assassina_deserto.glb`), Miguel → `anjo_miguel.glb`, Gabriel → `anjo_gabriel.glb`,
+Esqueleto Chifrudo → `esqueleto_chifrudo.glb`, Mago Sombrio → `mago_sombrio.glb`, leões invocados → `leao_lobo.glb`.
 
-| Arquivo | Unidade |
-|---|---|
-| `arqueiro_capa_vermelha.glb` | Davi |
-| `jonatas.glb` | Jônatas |
-| `assassina_deserto.glb` | Jael |
-| `josue.glb`, `ester.glb`, `daniel.glb`, `elias.glb`, `moises.glb`, `noe.glb` | mesmos nomes |
-| `anjo_miguel.glb` | Arcanjo Miguel |
-| `anjo_gabriel.glb` | Anjo Gabriel (novo) |
-| `golias.glb`, `lami.glb`, `leviata.glb` | Golias, Lami (novo), Leviatã |
-| `acabe.glb`, `hama.glb`, `herodes.glb`, `dalila.glb`, `balaao.glb`, `ninrode.glb` | novos personagens |
+**Importar personagens novos/refeitos (ex.: versões chibi):**
+```bash
+bash tools/importar_personagens.sh            # lê ~/Downloads/tripo_personagens e ~/Downloads/tripo_chibi
+bash tools/importar_personagens.sh /outra/pasta
+```
+O script otimiza cada `<slug>.glb` (WebP 1024 + meshopt, ~0,3 MB cada), grava em `assets/models/`, atualiza
+`modelos.json` e marca os arquivos em `chibi.json` (esses não recebem o ajuste de proporção "chibi" por ossos).
+Arquivo com o mesmo nome substitui o antigo; para trocar o modelo de uma unidade basta editar `ARQUIVO`.
+Ajustes opcionais por unidade em `js/units.js`: `rotY: 180` (de costas), `altura`, `rigBracos: 0` (arma de duas mãos: braços parados).
 
-Para adicionar outro modelo:
-1. Exporte da Tripo como **GLB**, rode `tools/otimizar.sh` (ou copie direto) para `game/assets/models/`.
-2. Use o **id** da unidade como nome do arquivo (ex.: `samuel.glb`) **ou** aponte no `js/units.js`: `modelo: 'assets/models/arquivo.glb'`.
-3. Reinicie `python3 servidor.py` (ele atualiza `assets/models/modelos.json`) e recarregue o jogo.
-4. Ajustes opcionais no `js/units.js`: `rotY: 180` (se aparecer de costas), `altura: 1.7` (tamanho), `escala: 1.3` (gigantes).
-
-Unidades ainda com boneco provisório (sem modelo): Gideão, Débora, Sansão, Samuel, Jonas, Salomão, Esqueleto Chifrudo,
-Javali-Besta, Orc, Mago Sombrio, Cavaleiro das Trevas, Leão-Lobo, Elemental de Fogo, Golem, Dragão, Faraó (e os leões do Daniel).
+**Conserto de pele (skinning)** em `js/modelos.js`: alguns GLBs da Tripo vêm com os ossos sem pose (Hamã, Acabe,
+Dalila, Lami, Herodes — eram as unidades "finas/torcidas/espetadas") e o esqueleto é reconstruído a partir das
+matrizes de ligação; nos 16 personagens chibi novos o auto-rig da Tripo saiu inutilizável (≈97% dos vértices presos
+aos quadris e/ou matrizes corrompidas), então eles viram malha estática animada por código (pulinhos, ginga,
+bote no ataque, giro ao lançar a habilidade). O mesmo vale para os quadrúpedes (Javali, Leão-Lobo, Dragão).
+Para ver todos os modelos: `screens/v5_modelos.png` (parado | ataque | original).
 
 ## Estrutura
 ```
@@ -77,11 +78,12 @@ game/
   js/habilidades.js   habilidades especiais de cada unidade
   js/ia.js            rivais controlados pelo computador
   js/regras.js        regras da loja/economia compartilhadas
-  js/vfx.js           efeitos em sprite-sheet (flipbook 8x8)
+  js/vfx.js           efeitos: partículas instanciadas, folhas animadas, água e feixes de luz
   js/modelos.js       carrega GLB (meshopt) ou cria o boneco provisório
   js/rig.js           animação procedural do esqueleto
   js/perfil/          contas locais (armazenamento.js = interface trocável)
-  assets/vfx/         efeitos usados (WebP 1024px)
+  assets/vfx/         texturas dos efeitos (WebP, CC0)
+  assets/models/arena/ torres, ponte, palmeira e rochas da Tripo (opcionais; arena.json lista quais existem)
   assets/models/      coloque aqui os .glb da Tripo
   vendor/three/       Three.js r186
   servidor.py         servidor local
@@ -104,6 +106,27 @@ game/
 - **Interface**: fonte Lilita One + Baloo 2 (incluídas em `assets/fonts`, licença OFL), botões e cartas gordinhos com texto contornado, custo em **gota de elixir** roxa/rosa (a moeda da loja agora se chama elixir), barra superior limpa. No celular em pé, as sinergias viram uma fileira de ícones (toque para ver o bônus) e a loja fica em duas linhas.
 - **Correção de modelos**: Hamã, Acabe, Dalila, Herodes e Lami (exportados da Tripo com `RootNode`) vinham com o esqueleto mal ligado e apareciam "estilhaçados"; o jogo recalcula as matrizes de ligação ao carregar (`consertarPele` em `js/modelos.js`).
 
+## Visual v5 (tabuleiro Combinações Táticas + poderes)
+- **Tabuleiro no estilo do modo Combinações Táticas (Merge Tactics)** (`js/arena.js`): campo retangular de grama clara com
+  **hexágonos** suaves (sem bordas duras), meio-fio e piso de pedra clara, prédios coloridos de castelo (amarelo, vermelho,
+  azul) com ameias, estandartes e cordões de bandeirolas. Sem torres, rio ou pontes.
+- **Grade hexagonal** de verdade: posicionamento, movimento e alcance usam distância em hexágonos (5 colunas × 8 fileiras;
+  fileiras 0–3 do inimigo, 4–7 suas). Uma tropa por hexágono.
+- **Bancos de madeira com moldura dourada**: o seu embaixo do campo (5 vagas) e o do adversário em cima.
+- **Governantes** em plataformas octogonais de pedra: o seu no canto inferior direito, o do adversário no canto superior
+  esquerdo, com nome e barra de vida. No campo aparece a contagem **👤 tropas/limite** durante a mobilização.
+- **HUD**: barra de jogadores no topo (retrato, nome, vida; você com brilho azul, adversário da rodada com borda vermelha),
+  "Rodada N / Fase de Mobilização" à esquerda, "Restante: N ⏱" à direita, cartas com custo num círculo laranja e traços
+  embaixo, gota dourada grande de elixir, botão de lista (sinergias) e barra azul de tempo no rodapé.
+- **Comprar posiciona sozinho**: tocar numa carta faz a tropa pular até o melhor hexágono livre pelo papel (`papel` em
+  `js/units.js`): tanques/corpo a corpo na frente, suportes no meio, distância no fundo. Campo no limite → vai para o banco.
+  Fusões continuam automáticas e arrastar continua funcionando.
+- **Tropas chibi**: todas com a mesma altura/pegada (cabem num hexágono), cores mais saturadas e borda de luz mais forte.
+- **Câmera**: celular em pé com vista alta mostrando o campo inteiro e os dois bancos; tela deitada em vista lateral.
+- **Poderes com efeito próprio** (`js/habilidades.js` + `js/vfx.js`), por exemplo: Moisés abre o mar (duas muralhas de água), Elias faz cair fogo do céu, Davi gira a funda e a pedra derruba gigantes, Golias e Sansão fazem ondas de choque com poeira e detritos, Miguel desce uma espada de luz, o Faraó solta gafanhotos e nuvens de praga, o Leviatã levanta uma onda, Dalila lança corações de encanto, Daniel ruge e chama leões, Noé traz a arca e o arco-íris, Gabriel anuncia com anéis de luz, Ninrode ergue a torre de Babel e confunde os inimigos.
+- **Golpes e tiros**: cada unidade tem um estilo de tiro (flecha, pedra, fogo, luz, água, sombra, veneno...) com rastro e impacto; corpo a corpo solta cortes e faíscas (garras nas feras, impacto pesado nos gigantes). Também há brilho de conjuração, estrelinhas de atordoado, escudos, curas e uma explosão de luz na fusão.
+
 ## Licenças dos efeitos
-Os efeitos em `assets/vfx/` vêm do pacote **Seamproof VFX Sprite Sheets** (licença comprada: pode usar em jogos,
-mas **não** pode redistribuir as folhas como pacote de assets). Three.js é MIT.
+- `assets/vfx/particulas.webp`: atlas montado com sprites do **Kenney Particle Pack** (kenney.nl), licença **CC0** (domínio público).
+- `assets/vfx/explosao.webp`, `poeira.webp`, `chama.webp`, `nuvem.webp`, `bola_fogo.webp`: flipbooks gratuitos da **Unity Labs Paris** (Thomas Iché), licença **CC0**.
+- Modelos 3D (personagens e palmeira/rochas): gerados na Tripo pelo autor do jogo. Fontes: OFL. Three.js: MIT.

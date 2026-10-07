@@ -79,7 +79,7 @@ button:disabled { filter: grayscale(.85) brightness(.85); cursor: default; }
 #loja { position: fixed; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; z-index: 5; padding: 8px 10px; border-radius: 20px;
   background: linear-gradient(#3d7fd6, #2457a8); border: 3px solid var(--tinta); box-shadow: inset 0 3px 0 #ffffff44, 0 6px 0 #0b1a3d88; }
 #loja.vender { background: linear-gradient(#e85a4a, #a82a20); }
-#loja.emCombate #cartas, #loja.emCombate #btnRenovar { filter: grayscale(.7) brightness(.75); pointer-events: none; }
+#loja.emCombate #cartas, #loja.emCombate #btnRenovar { filter: saturate(.6) brightness(.92); pointer-events: none; }
 #loja.emCombate #btnLutar { animation: none; background: linear-gradient(#ff8a7a, #e8283a); box-shadow: inset 0 3px 0 #fff8, 0 5px 0 #7a1410; }
 #loja .lado { display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center; }
 #btnRenovar { width: 60px; height: 56px; padding: 0; background: linear-gradient(#ffe46a, #ffb21e); box-shadow: inset 0 3px 0 #fff8, 0 4px 0 #a0600a; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
@@ -98,7 +98,7 @@ button:disabled { filter: grayscale(.85) brightness(.85); cursor: default; }
 .carta:hover { transform: translateY(-6px) scale(1.04); }
 .carta .retrato { position: relative; flex: 1; border-radius: 8px; overflow: hidden; display: grid; place-items: center;
   background: var(--img, none) center 25% / 112% no-repeat, radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--cor) 45%, #fff), color-mix(in srgb, var(--cor) 85%, #000) 85%); box-shadow: inset 0 -16px 18px #0005; }
-.carta.trevas .retrato { background: var(--img, none) center 25% / 112% no-repeat, radial-gradient(circle at 50% 35%, #b06ad0, #3a0f4a 85%); }
+.carta.trevas .retrato { background: var(--img, none) center 25% / 112% no-repeat, radial-gradient(circle at 50% 35%, #d49af0, #5a2470 85%); }
 .carta .retrato span { font-family: var(--fonteT); font-size: 28px; text-shadow: var(--contorno); }
 .carta .retrato em { position: absolute; left: 50%; bottom: 3px; transform: translateX(-50%); font-family: var(--fonteT); font-style: normal; font-size: 12px; background: var(--amarelo); color: var(--tinta); border-radius: 8px; padding: 0 6px; border: 2px solid var(--tinta); }
 .carta .trs { position: absolute; right: 2px; top: 2px; display: flex; flex-direction: column; gap: 2px; }
@@ -123,11 +123,11 @@ button:disabled { filter: grayscale(.85) brightness(.85); cursor: default; }
 .rotulo .nome { display: none; font-size: 12px; padding: 0 6px 1px; border-radius: 8px; background: #0b1a3dcc; margin-bottom: 2px; }
 .rotulo.foco .nome { display: block; }
 .rotulo .hp { display: flex; align-items: center; }
-.rotulo .nv { position: relative; z-index: 1; min-width: 17px; height: 17px; padding: 0 2px; margin-right: -4px; display: grid; place-items: center; font-size: 9px; line-height: 1; border-radius: 5px; border: 2px solid var(--tinta); color: #fff; background: linear-gradient(#5ab0ff, #2457d8); text-shadow: 0 1px 0 var(--tinta); }
+.rotulo .nv { position: relative; z-index: 1; min-width: 14px; height: 14px; padding: 0 1px; margin-right: -3px; display: grid; place-items: center; font-size: 8px; line-height: 1; border-radius: 4px; border: 1.5px solid var(--tinta); color: #fff; background: linear-gradient(#5ab0ff, #2457d8); text-shadow: 0 1px 0 var(--tinta); }
 .rotulo.inimigo .nv { background: linear-gradient(#ff8a7a, #d8282a); }
 .rotulo.e2 .nv { background: linear-gradient(#ffe46a, #f0a010); color: var(--tinta); text-shadow: none; }
 .rotulo.e3 .nv { background: linear-gradient(#ffc8ff, #c03ae0); }
-.rotulo .barra { position: relative; width: 46px; height: 9px; background: #10183acc; border: 2px solid var(--tinta); border-radius: 4px; overflow: hidden; }
+.rotulo .barra { position: relative; width: 38px; height: 7px; background: #10183acc; border: 1.5px solid var(--tinta); border-radius: 3px; overflow: hidden; }
 .rotulo .barra i { display: block; height: 100%; }
 .rotulo .vida i { background: linear-gradient(#8ccaff, #2f86ff 60%, #1f5ad8); }
 .rotulo.inimigo .vida i { background: linear-gradient(#ffa89a, #ff3a2a 60%, #c81a1a); }
@@ -244,3 +244,101 @@ button:disabled { filter: grayscale(.85) brightness(.85); cursor: default; }
   #faixa h2 { font-size: 34px; }
   #titulo h1 { font-size: 38px; } .caixa { padding: 14px 14px 16px; margin-top: 40px; }
 }
+
+/* =====================================================================
+   v5 — HUD no estilo do modo Combinações Táticas (Merge Tactics)
+   ===================================================================== */
+#hud { height: auto; display: block; padding: 0; background: none; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+#jogadores { display: flex; justify-content: center; gap: 0; background: linear-gradient(#0b1430, #18234a); border-bottom: 3px solid #0b1026; box-shadow: 0 4px 10px #0006; }
+.jog { position: relative; flex: 0 1 92px; min-width: 0; height: 74px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden;
+  background: linear-gradient(#26305e, #121a3c); border-right: 2px solid #0b1026; }
+.jog .av { position: absolute; inset: 0 0 18px 0; background: var(--img, none) center 22% / 118% no-repeat; }
+.jog.voce { background: radial-gradient(ellipse at 50% 70%, #66c8ff, #1f6fe0 55%, #10306e); box-shadow: inset 0 0 18px #9be4ff; }
+.jog.voce::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px #8fdcff; pointer-events: none; }
+.jog.atual:not(.voce) { box-shadow: inset 0 0 0 2px #ff6a5a; }
+.jog.fora { filter: grayscale(1) brightness(.6); }
+.jog .bv { position: relative; height: 6px; margin: 0 4px 1px; background: #0b1026; border-radius: 3px; overflow: hidden; }
+.jog .bv i { display: block; height: 100%; background: linear-gradient(#ff7a6a, #e02a2a); }
+.jog.voce .bv i { background: linear-gradient(#9ae4ff, #2f9bff); }
+.jog .nm { position: relative; height: 13px; font-size: 10.5px; line-height: 12px; text-align: center; font-weight: 800; color: #ff9a8a; text-shadow: 0 1px 0 #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 16px 0 3px; }
+.jog.voce .nm { color: #bfeaff; }
+.jog .hp { position: absolute; right: 3px; bottom: 1px; font-family: var(--fonteT); font-weight: 400; font-size: 12px; text-shadow: var(--contorno); }
+.hLinha { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 12px 0; }
+.rodadaBox b { font-size: 20px; color: #fff; }
+.rodadaBox #fase { font-size: 12.5px; color: var(--amarelo); font-weight: 800; text-shadow: 0 1px 0 var(--tinta), 0 0 3px #000a; }
+.rodadaBox #nomeRodada { font-size: 10.5px; color: #e6f0ff; opacity: .85; }
+.restBox { display: flex; flex-direction: column; align-items: flex-end; line-height: 1; }
+.restBox small { font-family: var(--fonteT); font-size: 14px; text-shadow: var(--contorno); }
+.restBox .rel { display: flex; align-items: center; gap: 4px; }
+#timer { font-size: 22px; min-width: 0; background: none; border: 0; box-shadow: none; padding: 0; }
+.relogio { width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle, #fff 0 45%, #f0c040 47% 60%, #9a6a10 62%); border: 2px solid var(--tinta); position: relative; }
+.relogio::after { content: ''; position: absolute; left: 50%; top: 22%; width: 2px; height: 32%; background: var(--tinta); transform-origin: bottom; }
+
+/* sinergias: coluna de ícones à esquerda (o botão de lista mostra os nomes) */
+#tracos { left: 6px; right: auto; top: 128px; width: auto; height: auto; max-height: calc(100vh - 330px); flex-direction: column; gap: 4px; overflow-y: auto; overflow-x: hidden; padding: 0; }
+#tracos .traco { padding: 0; background: none; border: 0; border-radius: 0; }
+#tracos .traco.ativo, #tracos .traco.ativo.n2 { background: none; box-shadow: none; }
+#tracos .traco .tx { display: none; }
+#tracos .traco .ic { width: 34px; height: 34px; font-size: 16px; }
+#tracos.aberto { width: 180px; background: #0b1a3dd0; border-radius: 12px; padding: 6px; }
+#tracos.aberto .traco .tx { display: block; }
+
+/* Governantes (reis) nas plataformas */
+#reis { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+.rei { position: absolute; transform: translate(-50%, -100%); display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.rei .nm { font-family: var(--fonteT); font-size: 11px; text-shadow: var(--contorno); white-space: nowrap; }
+.rei .lin { display: flex; align-items: center; gap: 3px; }
+.rei .esc { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; background: radial-gradient(circle at 40% 35%, #9ad0ff, #2f6fe0); border: 2px solid var(--tinta); }
+.rei.inimigo .esc { background: radial-gradient(circle at 40% 35%, #ffb0a0, #d0302a); }
+.rei .bv { position: relative; width: 62px; height: 12px; background: #0b1026; border: 2px solid var(--tinta); border-radius: 4px; overflow: hidden; }
+.rei .bv i { display: block; height: 100%; background: linear-gradient(#9ae4ff, #2f9bff); }
+.rei.inimigo .bv i { background: linear-gradient(#ff9a8a, #e02a2a); }
+.rei .bv b { position: absolute; inset: 0; font-family: var(--fonteT); font-weight: 400; font-size: 10px; line-height: 9px; text-align: center; text-shadow: var(--contorno); }
+
+/* loja: cartas com retrato, custo num círculo laranja e ícone de traço embaixo; gota grande de elixir */
+#loja { background: linear-gradient(#0b1a3d00, #0b1a3dd8 45%); border: 0; box-shadow: none; padding: 8px 10px 12px; border-radius: 0; bottom: 0; }
+#loja.vender { background: linear-gradient(#e85a4a00, #c83a2ae0 45%); }
+#btnTracos { width: 44px; height: 44px; padding: 0; background: linear-gradient(#ffffff, #cfd8ea); box-shadow: inset 0 -3px 0 #8a96b0, 0 3px 0 #0b1a3d88; display: grid; place-items: center; }
+#btnTracos .lista { display: flex; flex-direction: column; gap: 3px; } #btnTracos .lista i { display: block; width: 18px; height: 3px; background: var(--tinta); border-radius: 2px; }
+.carta { padding: 3px; border-width: 3px; }
+.carta .retrato { border-radius: 7px; }
+.carta .custo { left: -8px; top: -8px; width: 28px; height: 28px; border-radius: 50%; transform: none; background: radial-gradient(circle at 40% 35%, #ffc070, #f07a10 70%); border: 2.5px solid var(--tinta); display: grid; place-items: center; }
+.carta .custo b { transform: none; }
+.carta .trs { right: auto; left: 50%; top: auto; bottom: 2px; transform: translateX(-50%); flex-direction: row; }
+.carta .retrato em { bottom: auto; top: 3px; left: auto; right: 3px; transform: none; }
+.elixirLoja { position: relative; }
+.gotaG { width: 62px; height: 62px; border-radius: 50% 0 50% 50%; transform: rotate(-45deg); display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 65%, #fff4c0 0 10%, #ffcf3a 35%, #e08a10 80%); border: 3px solid #5a3000; box-shadow: inset -3px 3px 0 #fff8, 0 4px 0 #0b1a3d88; }
+.gotaG b { transform: rotate(45deg); font-family: var(--fonteT); font-weight: 400; font-size: 28px; text-shadow: var(--contorno); }
+#btnLutar { width: 96px; height: 44px; font-size: 20px; }
+#barraTempo { position: fixed; left: 0; right: 0; bottom: 0; height: 6px; background: #0b1026; z-index: 6; }
+#barraTempo i { display: block; height: 100%; width: 100%; background: linear-gradient(#8ae0ff, #1f8fff); transition: width .25s linear; }
+#barraTempo.combate i { background: linear-gradient(#ffb070, #ff5a2a); }
+
+@media (max-aspect-ratio: 4/5), (max-width: 600px) {
+  .jog { height: 70px; flex: 1 1 0; }
+  .hLinha { padding: 4px 10px 0; }
+  .rodadaBox b { font-size: 18px; }
+  #tracos { top: 124px; }
+  #tracos .traco .ic { width: 30px; height: 30px; font-size: 14px; }
+  #loja { left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "c c c" "r . l"; gap: 6px; padding: 18px 8px 12px; }
+  #cartas { grid-area: c; justify-content: center; gap: 6px; }
+  .carta { width: calc((100vw - 16px - 24px) / 5); max-width: 74px; height: 88px; }
+  #loja .lado { grid-area: r; flex-direction: row; gap: 8px; align-items: center; }
+  #loja .lado.dir { grid-area: l; gap: 10px; }
+  #btnRenovar { width: 58px; height: 44px; }
+  #btnLutar { width: 104px; height: 44px; font-size: 21px; }
+  .gotaG { width: 50px; height: 50px; } .gotaG b { font-size: 23px; }
+  #info { top: 124px; }
+  #aviso { top: 122px; }
+}
+
+/* retrato: as sinergias ficam no botão de lista (como no Combinações Táticas) */
+@media (max-aspect-ratio: 4/5), (max-width: 600px) {
+  #tracos:not(.aberto) { display: none; }
+  #tracos.aberto { top: auto; bottom: 178px; left: 8px; max-height: 50vh; }
+}
+#btnTracos { position: relative; }
+#btnTracos .qt { position: absolute; right: -6px; top: -6px; min-width: 18px; height: 18px; border-radius: 9px; background: #3cb81e; border: 2px solid var(--tinta); font-size: 11px; line-height: 14px; padding: 0 3px; }
+#btnTracos .qt:empty { display: none; }

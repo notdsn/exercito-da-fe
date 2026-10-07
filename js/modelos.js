@@ -4,19 +4,111 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { caminhoModelo } from './units.js';
+import { caminhoModelo, CHIBI_NATIVO } from './units.js';
 import { Rig } from './rig.js';
 
 const PELE = '#c99a6e';
-export const ALTURA_PADRAO = 1.85;
+export const ALTURA_PADRAO = 1.4;   // tropas baixinhas: cabem num hexágono
 
-// Alguns GLBs da Tripo (os exportados com 'RootNode') vêm com as matrizes de ligação
-// do esqueleto erradas e a malha "explode" em estilhaços. Como o arquivo está em T-pose
-// (pose de repouso = pose de ligação), recalculamos as inversas a partir da pose atual.
+// Conserto da pele (skinning) dos GLBs da Tripo.
+// 1) Os exportados com 'RootNode' (Hamã, Acabe, Dalila, Lami, Herodes) vêm com TODOS os ossos na
+//    origem (transformações vazias); só as matrizes inversas de ligação (IBM) guardam a pose real.
+//    Antes recalculávamos as IBM a partir desses ossos vazios: a malha aparecia, mas os ossos não
+//    batiam com ela, e a animação procedural torcia braços/armas ("unidades finas e espetadas").
+//    Agora reconstruímos a pose dos ossos a partir das IBM (osso = malha · IBM⁻¹).
+// 2) Nos demais, a pose de repouso já é a de ligação; só recalculamos as inversas.
+const _X = new THREE.Matrix4(), _X0 = new THREE.Matrix4(), _L = new THREE.Matrix4();
+// Nesses arquivos a malha e as IBM também não estão no mesmo espaço (eixos/escala do FBX).
+// Achamos a transformação C (uma das 24 rotações de eixos + escala + translação) que leva o
+// esqueleto das IBM para cima da malha: compara o meio de cada osso com o centro dos vértices
+// que ele move.
+const ROT24 = (() => {
+  const out = [], v = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)];
+  for (const a of v) for (const b of v) { if (Math.abs(a.dot(b)) > 0.5) continue; const c = new THREE.Vector3().crossVectors(a, b); out.push(new THREE.Matrix4().makeBasis(a, b, c)); }
+  return out;
+})();
+function ajustarEspacoIBM(o, bom) {
+  const s = o.skeleton, geo = o.geometry, P = geo.attributes.position, SI = geo.attributes.skinIndex, SW = geo.attributes.skinWeight;
+  const n = s.bones.length, soma = Array.from({ length: n }, () => new THREE.Vector3()), cont = new Float32Array(n), v = new THREE.Vector3();
+  for (let i = 0; i < P.count; i++) for (let k = 0; k < 4; k++) {
+    const w = SW.getComponent(i, k); if (w < 0.6) continue;
+    const b = SI.getComponent(i, k); v.fromBufferAttribute(P, i); soma[b].addScaledVector(v, w); cont[b] += w;
+  }
+  const pos = s.boneInverses.map((m, i) => bom[i] ? new THREE.Vector3().setFromMatrixPosition(m.clone().invert()) : null);
+  const A = [], B = [];
+  s.bones.forEach((b, i) => {
+    if (cont[i] < 15 || !pos[i]) return;
+    const f = b.children.find(c => c.isBone); let j = f ? s.bones.indexOf(f) : -1; if (j >= 0 && !pos[j]) j = -1;
+    A.push(j >= 0 ? pos[i].clone().add(pos[j]).multiplyScalar(0.5) : pos[i].clone()); B.push(soma[i].divideScalar(cont[i]));
+  });
+  if (A.length < 4) return new THREE.Matrix4();
+  const mA = A.reduce((t, p) => t.add(p), new THREE.Vector3()).divideScalar(A.length), mB = B.reduce((t, p) => t.add(p), new THREE.Vector3()).divideScalar(B.length);
+  const rA = Math.sqrt(A.reduce((t, p) => t + p.distanceToSquared(mA), 0)), rB = Math.sqrt(B.reduce((t, p) => t + p.distanceToSquared(mB), 0));
+  const esc = rB / Math.max(rA, 1e-9);
+  let melhor = null, menor = Infinity;
+  for (const R of ROT24) {
+    let e = 0; for (let i = 0; i < A.length; i++) { v.copy(A[i]).sub(mA).applyMatrix4(R).multiplyScalar(esc).add(mB); e += v.distanceToSquared(B[i]); }
+    if (e < menor) { menor = e; melhor = R; }
+  }
+  // C(p) = esc * R * (p - mA) + mB
+  return new THREE.Matrix4().makeTranslation(mB.x, mB.y, mB.z).multiply(melhor.clone()).multiply(new THREE.Matrix4().makeScale(esc, esc, esc)).multiply(new THREE.Matrix4().makeTranslation(-mA.x, -mA.y, -mA.z));
+}
+// 3) Alguns personagens novos (Gideão, Sansão, Faraó...) trazem IBM degeneradas (determinante ~0)
+//    em ossos como dedos/pernas: elas são ignoradas e refeitas a partir da pose de repouso.
+const detOk = m => { const e = m.elements, d = m.determinant(); return isFinite(d) && Math.abs(d) > 1e-12 && e.every(isFinite); };
+// 4) Outros (vários dos 16 novos) vêm com IBM totalmente corrompidas (valores ~1e30) E ossos sem
+//    pose: não há esqueleto aproveitável. Viram malha estática (sem pele) e são animadas pelo
+//    movimento procedural de reserva (balanço/estocada), como os quadrúpedes.
 function consertarPele(cena) {
   cena.updateMatrixWorld(true);
-  cena.traverse(o => { if (o.isSkinnedMesh) { o.skeleton.calculateInverses(); o.bind(o.skeleton, o.matrixWorld); } });
+  const estaticos = [];
+  cena.traverse(o => {
+    if (!o.isSkinnedMesh) return;
+    const s = o.skeleton, n = s.bones.length;
+    const lixo = s.boneInverses.filter(m => !m.elements.every(x => isFinite(x) && Math.abs(x) < 1e4)).length;
+    if (lixo > n * 0.25) { estaticos.push(o); return; }
+    // 5) Pele "rígida": quase todos os vértices presos a um único osso (auto-rig da Tripo falhou
+    //    nos 16 personagens chibi novos: ~97% dos vértices só nos quadris). Mexer nos braços não
+    //    teria efeito; usamos a animação procedural de reserva.
+    { const SI = o.geometry.attributes.skinIndex, SW = o.geometry.attributes.skinWeight, h = new Map(); let tot = 0;
+      if (SI && SW) { for (let i = 0; i < SI.count; i += 3) { let mk = 0, mw = -1; for (let k = 0; k < 4; k++) { const w = SW.getComponent(i, k); if (w > mw) { mw = w; mk = SI.getComponent(i, k); } } h.set(mk, (h.get(mk) || 0) + 1); tot++; }
+        if (tot && Math.max(...h.values()) / tot > 0.85) { estaticos.push(o); return; } } }
+    const bom = s.boneInverses.map(detOk);
+    const ref = bom.indexOf(true);
+    let difere = false;
+    if (ref >= 0) {
+      _X0.multiplyMatrices(s.bones[ref].matrixWorld, s.boneInverses[ref]);
+      for (let i = 0; i < n && !difere; i++) {
+        if (!bom[i] || i === ref) continue;
+        _X.multiplyMatrices(s.bones[i].matrixWorld, s.boneInverses[i]);
+        for (let k = 0; k < 16; k++) if (Math.abs(_X.elements[k] - _X0.elements[k]) > 2e-3 * Math.max(1, Math.abs(_X0.elements[k]))) { difere = true; break; }
+      }
+    }
+    if (difere) {
+      const C = ajustarEspacoIBM(o, bom);
+      const W = new Array(n);
+      // processa pais antes dos filhos
+      const ordem = [...s.bones.keys()].sort((a, b) => profundidade(s.bones[a]) - profundidade(s.bones[b]));
+      for (const i of ordem) {
+        const b = s.bones[i], pi = s.bones.indexOf(b.parent);
+        const pw = pi >= 0 ? W[pi] : (b.parent ? b.parent.matrixWorld : new THREE.Matrix4());
+        if (bom[i]) W[i] = o.matrixWorld.clone().multiply(C).multiply(s.boneInverses[i].clone().invert());
+        else W[i] = pw.clone().multiply(b.matrix); // IBM ruim: mantém a posição local de repouso
+        _L.copy(pw).invert().multiply(W[i]).decompose(b.position, b.quaternion, b.scale);
+      }
+      cena.updateMatrixWorld(true);
+      o.userData.peleReconstruida = true;
+    }
+    s.calculateInverses(); o.bind(s, o.matrixWorld);
+  });
+  for (const o of estaticos) {
+    const geo = o.geometry.clone(); geo.deleteAttribute('skinIndex'); geo.deleteAttribute('skinWeight');
+    const m = new THREE.Mesh(geo, o.material); m.name = o.name; m.matrix.copy(o.matrix); m.matrix.decompose(m.position, m.quaternion, m.scale);
+    o.parent.add(m); o.parent.remove(o);
+  }
+  return estaticos.length > 0;
 }
+function profundidade(o) { let d = 0; while (o.parent) { d++; o = o.parent; } return d; }
 const mats = {};
 function mat(cor, extra = {}) {
   const k = cor + JSON.stringify(extra);
@@ -29,7 +121,7 @@ function malha(geo, m, x = 0, y = 0, z = 0) {
 
 export class Modelos {
   constructor() {
-    this.disponiveis = new Set(); this.gltfs = {}; this.porArquivo = {};
+    this.disponiveis = new Set(); this.chibi = new Set(); this.gltfs = {}; this.porArquivo = {};
     this.loader = new GLTFLoader(); this.loader.setMeshoptDecoder(MeshoptDecoder);
   }
 
@@ -39,16 +131,21 @@ export class Modelos {
       const r = await fetch('assets/models/modelos.json', { cache: 'no-store' });
       if (r.ok) { const lista = await r.json(); (Array.isArray(lista) ? lista : Object.keys(lista)).forEach(id => this.disponiveis.add(id)); }
     } catch (e) { /* sem lista: usa só bonecos */ }
+    try { // arquivos já em estilo chibi (escritos pelo tools/importar_personagens.sh)
+      const r = await fetch('assets/models/chibi.json', { cache: 'no-store' });
+      if (r.ok) (await r.json()).forEach(id => this.chibi.add(id));
+    } catch (e) { /* opcional */ }
     // cada unidade aponta para um arquivo; só carrega os que existem na pasta (lista gerada pelo servidor.py)
-    const arquivoDe = id => caminhoModelo(id, defs[id]).split('/').pop().replace(/\.glb$/i, '');
+    const D = this.disponiveis, cam = id => caminhoModelo(id, defs[id], D);
+    const arquivoDe = id => cam(id).split('/').pop().replace(/\.glb$/i, '');
     const ids = Object.keys(defs).filter(id => this.disponiveis.has(arquivoDe(id)));
-    const caminhos = [...new Set(ids.map(id => caminhoModelo(id, defs[id])))];
+    const caminhos = [...new Set(ids.map(cam))];
     let n = 0;
     await Promise.all(caminhos.map(c => new Promise(res => {
-      this.loader.load(c, g => { consertarPele(g.scene); this.porArquivo[c] = g; aoProgredir?.(++n, caminhos.length); res(); },
+      this.loader.load(c, g => { g.semPele = consertarPele(g.scene); this.porArquivo[c] = g; aoProgredir?.(++n, caminhos.length); res(); },
         undefined, err => { console.warn('Não consegui carregar o modelo', c, err); aoProgredir?.(++n, caminhos.length); res(); });
     })));
-    for (const id of ids) { const g = this.porArquivo[caminhoModelo(id, defs[id])]; if (g) this.gltfs[id] = g; }
+    for (const id of ids) { const g = this.porArquivo[cam(id)]; if (g) { g.chibiNativo = CHIBI_NATIVO.has(arquivoDe(id)) || this.chibi.has(arquivoDe(id)); this.gltfs[id] = g; } }
   }
 
   // Retorna { obj, mixer|null, altura }
@@ -56,6 +153,8 @@ export class Modelos {
     const g = this.gltfs[id];
     if (g) return this.criarGLB(g, def);
     const obj = this.boneco(id, def);
+    const alt0 = new THREE.Box3().setFromObject(obj).max.y || ALTURA_PADRAO;
+    obj.scale.multiplyScalar(ALTURA_PADRAO * (def.forma === 'humanoide' || !def.forma ? 1 : 0.95) / alt0);
     const alt = new THREE.Box3().setFromObject(obj).max.y;
     return { obj, mixer: null, rig: null, altura: Math.min(ALTURA_PADRAO, alt || ALTURA_PADRAO) };
   }
@@ -63,7 +162,10 @@ export class Modelos {
   criarGLB(g, def) {
     const cena = cloneSkinned(g.scene);
     cena.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; } });
-    const rig = Rig.criar(cena);
+    const rig = g.semPele ? null : Rig.criar(cena, { bracos: def.rigBracos, chibi: def.chibi ?? !g.chibiNativo });
+    // a caixa de malhas com pele precisa ser recalculada depois de mexer nos ossos (chibi)
+    cena.updateMatrixWorld(true);
+    cena.traverse(o => { if (o.isSkinnedMesh) { o.skeleton.update(); o.boundingBox = null; o.boundingSphere = null; } });
     const pivo = new THREE.Group();
     pivo.add(cena);
     cena.rotation.y = THREE.MathUtils.degToRad(def.rotY || 0);
@@ -71,7 +173,10 @@ export class Modelos {
     const caixa = new THREE.Box3().setFromObject(cena);
     const tam = caixa.getSize(new THREE.Vector3());
     const alvo = def.altura || ALTURA_PADRAO; // todos do mesmo tamanho
-    const esc = alvo / Math.max(0.0001, tam.y);
+    let esc = alvo / Math.max(0.0001, tam.y);
+    // criaturas sem esqueleto humano (quadrúpedes, dragões, golens): também limitamos a "pegada"
+    // no chão para todas ocuparem um hexágono do mesmo jeito
+    if (!rig && !def.gigante) esc = Math.min(esc, 1.55 / Math.max(0.0001, tam.x, tam.z));
     cena.scale.multiplyScalar(esc);
     cena.updateMatrixWorld(true);
     const c2 = new THREE.Box3().setFromObject(cena);

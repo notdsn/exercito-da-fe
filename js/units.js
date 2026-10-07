@@ -276,7 +276,7 @@ Object.assign(UNIDADES, {
     frase: '“Ela lhe rapou as sete tranças, e retirou-se dele a sua força.” — Jz 16:19',
   },
   lami: {
-    temModelo: true, nome: 'Lami', custo: 2, tracos: ['filisteus', 'gigantes'], funcao: 'corpo', lado: 'trevas', gigante: true,
+    temModelo: true, rigBracos: 0, nome: 'Lami', custo: 2, tracos: ['filisteus', 'gigantes'], funcao: 'corpo', lado: 'trevas', gigante: true,
     vida: 900, dano: 50, velAtaque: 0.6, alcance: 1, mana: 90, cor: '#6a5a40', acessorio: 'lanca',
     habilidade: 'Lança de Eixo de Tear', descHab: 'Arremessa a lança enorme em linha reta, atravessando todos os inimigos no caminho.',
     frase: '“A haste da sua lança era como eixo de tecelão.” — 1Cr 20:5',
@@ -313,6 +313,36 @@ export const RODADAS = [
   'Torre de Babel', 'Vale dos Ossos Secos', 'Muralhas de Jericó', 'Trevas do Abismo', 'A Batalha Final',
 ];
 
-export function caminhoModelo(id, def) {
+// papel no tabuleiro (usado para posicionar sozinho ao comprar):
+// 'tanque' e 'corpo' vão para a frente, 'suporte' para o meio, 'distancia' para o fundo
+const SUPORTES = new Set(['ester', 'debora', 'samuel', 'noe', 'balaao', 'gabriel', 'herodes', 'salomao']);
+const TANQUES = new Set(['golias', 'golem', 'sansao', 'josue', 'lami', 'orc', 'cavaleiro_trevas', 'miguel', 'noe']);
+export function papelDe(id) {
+  const d = UNIDADES[id]; if (!d) return 'corpo';
+  if (d.papel) return d.papel;
+  if (SUPORTES.has(id) && d.funcao !== 'corpo') return 'suporte';
+  if (TANQUES.has(id)) return 'tanque';
+  return d.funcao === 'corpo' ? 'corpo' : 'distancia';
+}
+// ===== Qual arquivo GLB (em assets/models/) cada unidade usa =====
+// Para trocar o modelo de uma unidade (ex.: versão chibi nova), basta mudar o nome aqui ou
+// salvar o arquivo como assets/models/<id>.glb e apagar a linha. Unidades sem arquivo usam o id.
+// Depois de copiar arquivos novos, rode tools/importar_personagens.sh (ou o servidor.py) para
+// atualizar assets/models/modelos.json — o jogo só carrega o que estiver listado ali.
+export const ARQUIVO = {
+  // [preferido, reserva]: usa o primeiro que existir em assets/models/ (modelos.json)
+  davi: ['davi', 'arqueiro_capa_vermelha'], jael: ['jael', 'assassina_deserto'],
+  miguel: 'anjo_miguel', gabriel: 'anjo_gabriel',
+  esqueleto_chifres: 'esqueleto_chifrudo', figura_sombria: 'mago_sombrio',
+  leao: 'leao_lobo',                     // leões invocados por Daniel usam o leão-lobo
+};
+// modelos que já vieram da Tripo em estilo chibi (cabeça grande): não recebem o "chibi" por ossos.
+// Os importados por tools/importar_personagens.sh também entram via assets/models/chibi.json.
+export const CHIBI_NATIVO = new Set(['gideao', 'debora', 'sansao', 'samuel', 'jonas', 'salomao', 'farao', 'esqueleto_chifrudo', 'javali_besta', 'orc', 'mago_sombrio', 'cavaleiro_trevas', 'leao_lobo', 'elemental_fogo', 'golem', 'dragao']);
+export function caminhoModelo(id, def, disponiveis) {
+  let a = ARQUIVO[id];
+  if (Array.isArray(a)) a = (disponiveis && a.find(x => disponiveis.has(x))) || a[a.length - 1];
+  if (a) return `assets/models/${a}.glb`;
   return (def && def.modelo) || `assets/models/${id}.glb`;
 }
+export const arquivoModelo = (id, def, disp) => caminhoModelo(id, def, disp).split('/').pop().replace(/\.glb$/i, '');

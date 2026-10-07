@@ -12,7 +12,7 @@ const D = THREE.MathUtils.degToRad;
 const _q = new THREE.Quaternion(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _e = new THREE.Euler();
 
 export class Rig {
-  static criar(raiz) {
+  static criar(raiz, opcoes = {}) {
     const ossos = {};
     raiz.traverse(o => {
       if (!o.isBone) return;
@@ -20,10 +20,24 @@ export class Rig {
       for (const k in NOMES) if (!ossos[k] && NOMES[k].test(n)) ossos[k] = o;
     });
     if (!ossos.lArm || !ossos.rArm || !ossos.hips) return null;
-    return new Rig(raiz, ossos);
+    return new Rig(raiz, ossos, opcoes);
   }
-  constructor(raiz, ossos) {
+  constructor(raiz, ossos, opcoes = {}) {
     this.raiz = raiz; this.ossos = ossos;
+    if (opcoes.chibi !== false) Rig.chibi(ossos);
+    // Quanto baixar os braços: a animação supunha pose em "T"; muitos modelos da Tripo vêm em pose "A"
+    // (braços já inclinados) ou com arma de duas mãos erguida. Baixar 72° nesses casos enfiava os braços
+    // no corpo e torcia a malha (unidades "finas/espetadas"). Agora medimos o ângulo de cada braço.
+    raiz.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(raiz.matrixWorld).invert();
+    const anguloBraco = (a, f) => {
+      if (!a || !f) return 0;
+      const p0 = a.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv), p1 = f.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+      return THREE.MathUtils.radToDeg(Math.atan2(p0.y - p1.y, Math.hypot(p1.x - p0.x, p1.z - p0.z))); // >0 = abaixo da horizontal
+    };
+    const ang = (anguloBraco(ossos.lArm, ossos.lFore) + anguloBraco(ossos.rArm, ossos.rFore)) / 2;
+    this.anguloBraco = ang; this.bracosFixos = opcoes.bracos === 0; // arma de duas mãos: braços ficam na pose original
+    this.baixo0 = opcoes.bracos ?? (ang < -25 ? 0 : THREE.MathUtils.clamp(68 - ang, 0, 72));
     raiz.updateMatrixWorld(true);
     const qRaizInv = new THREE.Quaternion(); raiz.getWorldQuaternion(qRaizInv).invert();
     this.info = {};
@@ -36,6 +50,24 @@ export class Rig {
     this.t = Math.random() * 10;
     this.ataque = 0; this.conjuro = 0; this.susto = 0; this.lado = Math.random() < 0.5 ? 1 : -1;
     this.atualizar(0, false);
+  }
+  // proporções "chibi" (tropas do Combinações Táticas): cabeça maior, tronco um pouco mais largo,
+  // pernas mais curtas e grossas. Escala no eixo do osso (direção do filho) = comprimento.
+  static chibi(ossos, k = { cabeca: 1.2, tronco: 1.04, pernaComp: 0.9, pernaGross: 1.08 }) {
+    const eixoDe = b => {
+      const f = b.children.find(c => c.isBone); if (!f) return 'y';
+      const p = f.position, ax = Math.abs(p.x), ay = Math.abs(p.y), az = Math.abs(p.z);
+      return ax > ay && ax > az ? 'x' : az > ay ? 'z' : 'y';
+    };
+    const esticar = (b, comp, gross) => {
+      if (!b) return; const e = eixoDe(b);
+      b.scale.set(gross, gross, gross); b.scale[e] = comp;
+    };
+    if (ossos.head) ossos.head.scale.setScalar(k.cabeca);
+    if (ossos.spine) esticar(ossos.spine, 0.97, k.tronco);
+    esticar(ossos.lUp, k.pernaComp, k.pernaGross); esticar(ossos.rUp, k.pernaComp, k.pernaGross);
+    // compensa no osso filho para não "achatar" pés/canelas em dobro
+    for (const b of [ossos.lLeg, ossos.rLeg]) if (b) { const e = eixoDe(b); b.scale.setScalar(1 / k.pernaGross); b.scale[e] = 1; }
   }
   // aplica rotação (euler XYZ em graus, espaço do modelo) por cima da pose de descanso
   girar(k, x, y, z) {
@@ -66,13 +98,15 @@ export class Rig {
     this.girar('spine1', resp * 1.2 - c * 8, 0, 0);
     this.girar('head', -c * 12 + f * 8, 0, 0);
     // braços: T-pose -> relaxado (~72° para baixo), balanço ao andar, golpe, conjuro (para cima)
-    const baixo = 72 * (1 - c) - 60 * c;   // c=1 => braços erguidos
+    const baixo = this.baixo0 * (1 - c) - Math.min(60, this.baixo0 + 20) * c;   // c=1 => braços erguidos
     const balL = -passo * 22, balR = passo * 22;
     const golpeR = this.lado > 0 ? a : 0, golpeL = this.lado < 0 ? a : 0;
+    if (!this.bracosFixos) {
     this.girar('lArm', balL - golpeL * 95 + c * 20, 0, -baixo + 6 * resp * (1 - c));
     this.girar('rArm', balR - golpeR * 95 + c * 20, 0, baixo - 6 * resp * (1 - c));
     this.girar('lFore', 0, -20 - golpeL * 30 - (andando ? 15 : 0), 0);
     this.girar('rFore', 0, 20 + golpeR * 30 + (andando ? 15 : 0), 0);
+    }
     // pernas
     this.girar('lUp', -passo * 28 - a * 8, 0, 0);
     this.girar('rUp', passo * 28 + a * 8, 0, 0);

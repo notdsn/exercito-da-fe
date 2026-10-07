@@ -5,16 +5,16 @@ import { UNIDADES, TRACOS } from './units.js';
 import { novaLoja, limiteCampo, contarTracos, niveis, renda, TAM_BANCO, VIDA_INICIAL, OURO_INICIAL } from './regras.js';
 
 export const PERSONAS = [
-  { nome: 'Faraó Ramessés', foco: ['egito', 'realeza'] },
-  { nome: 'Golias de Gate', foco: ['filisteus', 'gigantes'] },
-  { nome: 'Sombra do Abismo', foco: ['trevas', 'bestas'] },
-  { nome: 'Juíza de Ramá', foco: ['juizes', 'profetas'] },
-  { nome: 'Capitão de Jericó', foco: ['valentes', 'alianca'] },
-  { nome: 'Senhor de Babel', foco: ['gigantes', 'egito'] },
-  { nome: 'Escriba de Nínive', foco: ['livramento', 'profetas'] },
-  { nome: 'Rei de Moabe', foco: ['realeza', 'valentes'] },
-  { nome: 'Conselheiro de Susã', foco: ['intriga', 'trevas'] },
-  { nome: 'Hoste de Querubins', foco: ['celestial', 'profetas'] },
+  { nome: 'Faraó Ramessés', avatar: 'farao', foco: ['egito', 'realeza'] },
+  { nome: 'Golias de Gate', avatar: 'golias', foco: ['filisteus', 'gigantes'] },
+  { nome: 'Sombra do Abismo', avatar: 'figura_sombria', foco: ['trevas', 'bestas'] },
+  { nome: 'Juíza de Ramá', avatar: 'debora', foco: ['juizes', 'profetas'] },
+  { nome: 'Capitão de Jericó', avatar: 'josue', foco: ['valentes', 'alianca'] },
+  { nome: 'Senhor de Babel', avatar: 'ninrode', foco: ['gigantes', 'egito'] },
+  { nome: 'Escriba de Nínive', avatar: 'jonas', foco: ['livramento', 'profetas'] },
+  { nome: 'Rei de Moabe', avatar: 'balaao', foco: ['realeza', 'valentes'] },
+  { nome: 'Conselheiro de Susã', avatar: 'hama', foco: ['intriga', 'trevas'] },
+  { nome: 'Hoste de Querubins', avatar: 'gabriel', foco: ['celestial', 'profetas'] },
 ];
 
 export const DIFICULDADES = {
@@ -27,7 +27,7 @@ const ASSASSINOS = ['jael', 'leao_lobo', 'javali_besta', 'jonas'];
 
 export class RivalIA {
   constructor(persona, dif) {
-    this.nome = persona.nome; this.foco = [...persona.foco]; this.dif = dif;
+    this.nome = persona.nome; this.avatar = persona.avatar; this.foco = [...persona.foco]; this.dif = dif;
     this.vida = VIDA_INICIAL; this.ouro = OURO_INICIAL; this.unidades = []; // {id, estrelas}
     this.venceuUltima = false;
   }

@@ -13,6 +13,9 @@ os.makedirs(pasta, exist_ok=True)
 ids = sorted(f[:-4] for f in os.listdir(pasta) if f.lower().endswith('.glb'))
 with open(os.path.join(pasta, 'modelos.json'), 'w', encoding='utf-8') as f:
     json.dump(ids, f, ensure_ascii=False, indent=1)
+pa = os.path.join(pasta, 'arena'); os.makedirs(pa, exist_ok=True)
+with open(os.path.join(pa, 'arena.json'), 'w', encoding='utf-8') as f:
+    json.dump(sorted(f2[:-4] for f2 in os.listdir(pa) if f2.lower().endswith('.glb')), f, ensure_ascii=False, indent=1)
 print('Modelos 3D encontrados:', ', '.join(ids) if ids else 'nenhum (usando bonecos provisórios)')
 
 porta = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
