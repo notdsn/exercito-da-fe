@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232a1e16'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23ffd76a'%3E%E2%9C%A0%3C/text%3E%3C/svg%3E">
+<title>Exército da Fé — Batalhas Bíblicas</title>
+<link rel="stylesheet" href="css/estilo.css">
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/addons/"
+} }
+</script>
+</head>
+<body>
+<div id="cena"></div>
+<div id="rotulos"></div>
+
+<!-- HUD -->
+<div id="hud" class="oculta">
+  <div class="bloco"><span id="rodada">Rodada 1</span><small id="nomeRodada"></small></div>
+  <div class="bloco vs"><small>Adversário</small><span id="adversario"></span></div>
+  <div class="bloco"><span title="Sua vida">❤️ <b id="vida">30</b></span><span title="Ouro">🪙 <b id="ouro">0</b></span><span title="Unidades em campo">⚔️ <b id="campo">0/2</b></span></div>
+  <div class="bloco"><span id="timer">35s</span><button id="btnLutar">Lutar! ⚔️</button></div>
+</div>
+<div id="tracos" class="oculta"></div>
+<div id="rivais" class="oculta"></div>
+
+<!-- Loja -->
+<div id="loja" class="oculta">
+  <div class="lado">
+    <button id="btnRenovar" title="Atalho: D">🔄 Renovar<br><small>1 🪙</small></button>
+    <div class="ouroLoja">🪙 <b id="ouroLoja">0</b></div>
+  </div>
+  <div id="cartas"></div>
+  <div id="vendaTxt">Soltar para vender</div>
+</div>
+
+<div id="info"></div>
+<div id="aviso"></div>
+<div id="faixa"></div>
+
+<!-- Tela de título -->
+<div id="titulo">
+  <div class="raios"></div>
+  <div class="caixa">
+    <div class="selo">✝</div>
+    <h1>Exército da Fé</h1>
+    <h2>Combinações Bíblicas</h2>
+    <p class="verso">“Não por força nem por violência, mas pelo meu Espírito.” — Zc 4:6</p>
+    <div id="conta"></div>
+    <div class="dificuldade">
+      <span>Dificuldade:</span>
+      <label><input type="radio" name="dif" value="facil"> Fácil</label>
+      <label><input type="radio" name="dif" value="normal" checked> Normal</label>
+      <label><input type="radio" name="dif" value="dificil"> Difícil</label>
+    </div>
+    <button id="btnJogar" disabled>Jogar</button>
+    <div id="carregando">Carregando…</div>
+    <details class="como">
+      <summary>Como jogar</summary>
+      <ul>
+        <li>Compre heróis e criaturas na <b>loja</b> com 🪙 ouro. Arraste do <b>banco</b> para o seu lado do tabuleiro.</li>
+        <li><b>3 cópias iguais</b> se fundem em uma unidade ★★ (e 3 ★★ viram ★★★).</li>
+        <li>Junte <b>2 ou 4</b> unidades do mesmo traço para ativar <b>sinergias</b> (painel à esquerda).</li>
+        <li>Aperte <b>Lutar!</b> (ou espaço): o combate é automático. Mana cheia = habilidade especial!</li>
+        <li>Arraste uma unidade para a loja para <b>vender</b>. <b>D</b> renova a loja.</li>
+        <li>Derrote todos os rivais para vencer. Se sua vida chegar a 0, fim de jogo.</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<div id="fim">
+  <div class="caixa">
+    <h1 id="fimTitulo"></h1>
+    <p id="fimTexto"></p>
+    <div id="fimPremios"></div>
+    <button id="btnDeNovo">Jogar de novo</button>
+    <button id="btnMenu" class="sec">Menu</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
